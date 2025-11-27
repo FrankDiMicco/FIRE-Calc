@@ -1,0 +1,170 @@
+FIRE PLANNER - PROJECT SUMMARY
+================================
+
+VISION
+------
+Comprehensive, modular FIRE planning tool that integrates budget, taxes, ACA subsidies, 
+retirement simulations, and portfolio strategy - all working standalone OR connected together.
+
+
+CORE MODULES
+------------
+1. Budget Builder (foundation - feeds other tools)
+2. Years to FI Calculator
+3. Retirement Simulator (historical + Monte Carlo)
+4. Bucket Strategy Builder
+5. Tax Calculator
+6. ACA Subsidy Calculator
+7. Roth Conversion Optimizer
+8. Withdrawal Strategy Comparison
+9. Integrated Dashboard
+
+
+UI APPROACH
+-----------
+- Card-based dashboard (mobile-first)
+- Each card opens a full module
+- Visual indicators for connected tools (🔗)
+- Touch-optimized, works great on phone/tablet/desktop
+- Clean, modern interface with gradient backgrounds
+
+
+DATA & TECH STACK
+-----------------
+✓ Validated Shiller historical data (1871-2024)
+  - Annual stock returns (nominal)
+  - Annual bond returns (nominal)
+  - Annual inflation (CPI)
+  - Matches FICalc results within 0.62%
+
+- localStorage for data persistence (survives browser refresh)
+- Optional integration between modules
+- Export/Import/Clear All functionality
+- PWA-ready for "install to home screen"
+- Capacitor for eventual iOS app conversion
+
+
+MODULE INTEGRATION PHILOSOPHY
+------------------------------
+Users can:
+- Use one tool independently (just ACA calculator, just budget, etc.)
+- Connect multiple tools together for comprehensive planning
+- See visual indicators of which tools are sharing data
+- Import/export data between tools manually or automatically
+
+Example integrations:
+- Budget → Years to FI (auto-calculates FI number)
+- Budget → Tax Calculator (knows spending needs)
+- Tax Calculator → ACA Subsidy (shares MAGI calculation)
+- All modules → Dashboard (comprehensive overview)
+
+
+USER WORKFLOWS
+--------------
+Casual User:
+  Start → Pick one card → Use tool → Done
+
+Power User:
+  Start → Budget → Years to FI → Retirement Simulator → 
+  Tax Planning → ACA Optimization → Dashboard overview → 
+  Adjust and re-run
+
+Key Feature: NO FORCED WORKFLOW
+- Every tool works independently
+- Integration is optional and beneficial
+- Clear visual feedback on connections
+
+
+DATA PERSISTENCE
+----------------
+- Auto-save to localStorage on every change
+- Survives browser refresh/close
+- Export button creates downloadable JSON backup
+- Import button restores from JSON file
+- "Clear All Data" button in settings for fresh start
+- (Future) Cloud sync with user accounts
+
+
+PATH FORWARD
+------------
+Phase 1: Build web app with card dashboard
+  - Implement card-based navigation
+  - Create shared state manager
+  - Build data import/export system
+
+Phase 2: Implement core modules one at a time
+  - Start with Budget Builder (foundation)
+  - Add Years to FI Calculator
+  - Add Retirement Simulator with Shiller data
+  - Continue with remaining modules
+
+Phase 3: Add integration layer
+  - Module-to-module data sharing
+  - Visual connection indicators
+  - Dashboard that synthesizes all data
+
+Phase 4: Polish and test
+  - Mobile optimization
+  - PWA features (offline, installable)
+  - User testing and refinement
+
+Phase 5: (Future) iOS app
+  - Wrap with Capacitor
+  - Build in Xcode
+  - Submit to App Store
+
+
+TECHNICAL BEST PRACTICES FOR FUTURE iOS
+----------------------------------------
+- Use relative units (rem, %, vh) not fixed pixels
+- Touch targets minimum 44px (iOS standard)
+- Avoid hover-dependent interactions
+- Keep file paths relative
+- Structure code in clean modules
+- Use custom modals instead of alert()/confirm()
+- Don't rely on browser-specific features
+
+
+KEY DATA VALIDATION COMPLETED
+------------------------------
+✓ Shiller data extracted and formatted as JSON
+✓ Tested against FICalc for 1980-2009 scenario:
+  - Our result: $11,809,238
+  - FICalc result: $11,736,406
+  - Difference: 0.62% (excellent accuracy)
+✓ Data includes:
+  - 154 years of complete annual data (1871-2024)
+  - Nominal stock returns (S&P 500 total return)
+  - Nominal bond returns (10-year Treasury)
+  - Inflation rates (CPI year-over-year)
+
+
+STRETCH GOALS
+-------------
+- Native iOS app (via Capacitor)
+- Cloud sync with user accounts
+- Social Security integration
+- Pension planning module
+- Real estate investment tracking
+- Multiple scenario comparison side-by-side
+- PDF report generation
+- Sharing retirement plans via URL
+
+
+PROJECT FILES
+-------------
+- shiller_annual_data.json - Validated historical market data
+- test_ficalc.py - Python simulator for testing against FICalc
+- ui-prototype-cards.html - Card-based UI mockup
+- ui-prototype-sidebar.html - Sidebar navigation mockup
+- ui-prototype-topnav.html - Top navigation mockup
+
+
+NOTES
+-----
+- Cards UI chosen for superior mobile experience
+- Modular architecture allows independent use of tools
+- localStorage sufficient for initial version (no backend needed)
+- Web-first approach, iOS conversion comes later
+- Focus on clean, simple UX - avoid overwhelming users
+- Progressive disclosure: show simple options first, advanced later

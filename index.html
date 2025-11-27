@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIRE Planner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .header {
+            max-width: 1200px;
+            margin: 0 auto 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        
+        .card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 30px 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        
+        .card:hover {
+            border-color: #999;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .card h3 {
+            font-size: 1.2em;
+            color: #333;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            width: 90%;
+            max-width: 800px;
+            margin: 50px auto;
+            border-radius: 8px;
+            max-height: 85vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .modal-header {
+            padding: 20px 30px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h2 {
+            font-size: 1.5em;
+        }
+        
+        .close-btn {
+            background: #ddd;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        
+        .close-btn:hover {
+            background: #ccc;
+        }
+        
+        .modal-body {
+            padding: 30px;
+            flex: 1;
+        }
+        
+        @media (max-width: 768px) {
+            .modal-content {
+                width: 95%;
+                margin: 20px auto;
+                max-height: 90vh;
+            }
+            
+            .cards-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>FIRE Planner</h1>
+        <p>Modular Financial Independence Planning</p>
+    </div>
+    
+    <div class="container">
+        <div class="cards-grid">
+            <div class="card" onclick="openModule('budget')">
+                <h3>Budget Builder</h3>
+            </div>
+            
+            <div class="card" onclick="openModule('portfolio')">
+                <h3>Portfolio</h3>
+            </div>
+            
+            <div class="card" onclick="openModule('years-to-fi')">
+                <h3>Years to FI</h3>
+            </div>
+            
+            <div class="card" onclick="openModule('retirement-sim')">
+                <h3>Retirement Simulator</h3>
+            </div>
+            
+            <div class="card" onclick="openModule('bucket')">
+                <h3>Bucket Strategy</h3>
+            </div>
+            
+            <div class="card" onclick="openModule('tax')">
+                <h3>Tax Calculator</h3>
+            </div>
+            
+            <div class="card" onclick="openModule('aca')">
+                <h3>ACA Subsidy</h3>
+            </div>
+            
+            <div class="card" onclick="openModule('roth')">
+                <h3>Roth Conversions</h3>
+            </div>
+            
+            <div class="card" onclick="openModule('withdrawal')">
+                <h3>Withdrawal Strategy</h3>
+            </div>
+            
+            <div class="card" onclick="openModule('dashboard')">
+                <h3>Dashboard</h3>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="moduleModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Module Name</h2>
+                <button class="close-btn" onclick="closeModule()">Close</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <p>Module content will go here...</p>
+            </div>
+        </div>
+    </div>
+    
+    <script src="shared/state-manager.js"></script>
+    <script>
+        // Module metadata
+        const moduleInfo = {
+            'budget': { title: 'Budget Builder', file: 'modules/budget.js' },
+            'portfolio': { title: 'Portfolio', file: 'modules/portfolio.js' },
+            'years-to-fi': { title: 'Years to FI', file: 'modules/years-to-fi.js' },
+            'retirement-sim': { title: 'Retirement Simulator', file: 'modules/retirement-sim.js' },
+            'bucket': { title: 'Bucket Strategy', file: 'modules/bucket.js' },
+            'tax': { title: 'Tax Calculator', file: 'modules/tax.js' },
+            'aca': { title: 'ACA Subsidy', file: 'modules/aca.js' },
+            'roth': { title: 'Roth Conversions', file: 'modules/roth.js' },
+            'withdrawal': { title: 'Withdrawal Strategy', file: 'modules/withdrawal.js' },
+            'dashboard': { title: 'Dashboard', file: 'modules/dashboard.js' }
+        };
+        
+        // Track loaded modules to avoid reloading
+        const loadedModules = {};
+        let currentModule = null;
+        
+        // Open module modal and load its code
+        function openModule(moduleName) {
+            const info = moduleInfo[moduleName];
+            if (!info) return;
+            
+            document.getElementById('modalTitle').textContent = info.title;
+            document.getElementById('modalBody').innerHTML = '<p>Loading...</p>';
+            document.getElementById('moduleModal').style.display = 'block';
+            
+            // If module already loaded, just init it
+            if (loadedModules[moduleName]) {
+                if (window.modules && window.modules[moduleName]) {
+                    currentModule = moduleName;
+                    window.modules[moduleName].init();
+                } else {
+                    document.getElementById('modalBody').innerHTML = 
+                        '<p>Module not yet implemented. Coming soon...</p>';
+                }
+                return;
+            }
+            
+            // Dynamically load the module script
+            const script = document.createElement('script');
+            script.src = info.file;
+            
+            script.onload = () => {
+                loadedModules[moduleName] = true;
+                
+                // Small delay to ensure script is fully executed
+                setTimeout(() => {
+                    if (window.modules && window.modules[moduleName]) {
+                        currentModule = moduleName;
+                        window.modules[moduleName].init();
+                    } else {
+                        document.getElementById('modalBody').innerHTML = 
+                            '<p>Module loaded but not initialized properly. Check console for errors.</p>';
+                        console.error('Module registered but not found:', moduleName);
+                    }
+                }, 10);
+            };
+            
+            script.onerror = () => {
+                document.getElementById('modalBody').innerHTML = 
+                    '<p>Module not yet implemented. Coming soon...</p>';
+                console.log('Module not found:', info.file);
+            };
+            
+            document.head.appendChild(script);
+        }
+        
+        // Close module modal
+        function closeModule() {
+            document.getElementById('moduleModal').style.display = 'none';
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('moduleModal');
+            if (event.target === modal) {
+                closeModule();
+            }
+        }
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeModule();
+            }
+        });
+    </script>
+</body>
+</html>

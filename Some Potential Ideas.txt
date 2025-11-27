@@ -1,0 +1,9 @@
+Change name of budget builder.  Budget?
+Import budgets?  Predefined categories?  
+Under Advanced - can reduce to x in down markets.
+ACA integration - Predefined line item in budgets. manual entry or Check box - get from ACA module.
+Persistent "Close" button so don't have to scroll up to the top to exit 
+
+
+Taxes
+backward tax calculations. 
