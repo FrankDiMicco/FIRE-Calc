@@ -11,3 +11,7 @@ backward tax calculations.
 
 Portfolio
 Option for different portfolios. Port 1, Port 2, etc.
+
+
+Retirement simulator
+Save scenarios

@@ -1,26 +1,30 @@
 FIRE PLANNER - DEVELOPMENT HANDOFF
 ===================================
-Last Updated: November 27, 2025
+Last Updated: December 4, 2025
 
 QUICK START FOR NEW AI ASSISTANT
 ---------------------------------
 This is a modular FIRE (Financial Independence, Retire Early) planning web application.
-Three modules are complete and working. Seven more need to be built.
+Five modules are complete and working. Five more need to be built.
 
 **To continue development:**
 1. Read this entire file first
 2. Then read: index.html (understand the module loading system)
 3. Then read: modules/budget.js (see the pattern for building modules)
-4. Follow the same pattern for new modules
+4. Then read: shared/simulation-engine.js (understand historical backtesting)
+5. Follow the same pattern for new modules
 
 **Current Status:**
 - Budget Builder: ✅ COMPLETE & TESTED
-- ACA Subsidy Calculator: ✅ COMPLETE & TESTED  
+- Portfolio: ✅ COMPLETE & TESTED
 - Tax Calculator: ✅ COMPLETE & TESTED
-- Portfolio: 🔲 Placeholder only
+- ACA Subsidy Calculator: ✅ COMPLETE & TESTED
+- Retirement Simulator: ✅ COMPLETE & TESTED
 - Years to FI: 🔲 Not started
-- Retirement Simulator: 🔲 Not started
-- 6 other modules: 🔲 Not started
+- Bucket Strategy: 🔲 Not started
+- Roth Conversions: 🔲 Not started
+- Withdrawal Strategy: 🔲 Not started
+- Dashboard: 🔲 Not started
 
 PROJECT OVERVIEW
 -----------------
@@ -34,21 +38,21 @@ FILE STRUCTURE
 --------------
 /fire-planner/
   index.html                    ← Landing page, modal system, module loader
+  shiller_annual_data11262025.json  ← Historical market data (1871-2024), validated
   /shared/
     state-manager.js            ← Handles localStorage, import/export
+    simulation-engine.js        ← ✅ Historical backtesting engine (reusable)
   /modules/
     budget.js                   ← ✅ COMPLETE
-    aca.js                      ← ✅ COMPLETE
+    portfolio.js                ← ✅ COMPLETE (with 13 account types)
     tax.js                      ← ✅ COMPLETE
-    portfolio.js                ← 🔲 TODO
+    aca.js                      ← ✅ COMPLETE
+    retirement-sim.js           ← ✅ COMPLETE (uses simulation engine)
     years-to-fi.js              ← 🔲 TODO
-    retirement-sim.js           ← 🔲 TODO
     bucket.js                   ← 🔲 TODO
     roth.js                     ← 🔲 TODO
     withdrawal.js               ← 🔲 TODO
     dashboard.js                ← 🔲 TODO
-  /data/
-    shiller_annual_data.json    ← Historical market data (1871-2024), validated
 
 HOW THE APP WORKS
 -----------------
@@ -297,13 +301,185 @@ getData() returns {
 }
 ```
 
+### 4. PORTFOLIO MODULE (modules/portfolio.js)
+**Purpose:** Track current savings, asset allocation, and account types
+
+**Features:**
+- Add/edit/delete investment accounts
+- 13 account types: 529, 403b, Brokerage/Taxable, Crypto, ESOP, Gold, HSA, Other, Roth 401k, Roth IRA, Savings/Checking, Traditional 401k, Traditional IRA
+- Asset allocation (stocks/bonds/cash %) for investment accounts
+- Special handling:
+  - Savings/Checking: Always 100% cash (allocation hidden)
+  - Crypto, Gold, ESOP: Separate asset classes (allocation hidden)
+- Total portfolio value calculation
+- Weighted average allocation across all accounts
+- Progress to FI (integrates with Budget module's FI number)
+- Visual progress bar showing % to FI
+- Sorted by balance (largest first)
+- Export/Clear data
+
+**Data Structure:**
+```javascript
+accounts: [
+  {
+    id: timestamp,
+    name: string,
+    type: '529' | '403b' | 'Brokerage/Taxable' | 'Crypto' | 'ESOP' | 'Gold' | 'HSA' | 'Other' | 'Roth 401k' | 'Roth IRA' | 'Savings/Checking' | 'Traditional 401k' | 'Traditional IRA',
+    balance: number,
+    stocks_pct: number,  // 0-100
+    bonds_pct: number,   // 0-100
+    cash_pct: number     // 0-100
+  }
+]
+```
+
+**Public API:**
+```javascript
+getData() returns {
+  accounts: array,
+  totalValue: number,
+  allocation: {
+    stocks: number,    // Weighted average %
+    bonds: number,     // Weighted average %
+    cash: number,      // Weighted average %
+    esop: number,      // % of total portfolio
+    crypto: number,    // % of total portfolio
+    gold: number       // % of total portfolio
+  }
+}
+```
+
+**Key Implementation Details:**
+- Allocation validation: must total 100% for investment accounts
+- Real-time allocation total display
+- Smart display: only shows non-zero asset classes
+- Integration: pulls FI number from Budget to show progress
+
+### 5. RETIREMENT SIMULATOR (modules/retirement-sim.js)
+**Purpose:** Test retirement sustainability using historical market data (1871-2024)
+
+**Features:**
+- Historical backtesting across 125+ periods
+- Tests withdrawal strategies with actual market returns
+- Success rate calculation (% of historical periods that survived)
+- Percentile analysis (5th, 25th, 50th, 75th, 95th final balances)
+- Best/worst case scenario identification
+- Integration with Portfolio (pulls balance + allocation)
+- Integration with Budget (pulls annual expenses)
+- Visual results with color-coded success rates
+- Withdrawal rate comparison vs 4% rule
+- Export/Clear data
+
+**Uses Simulation Engine:**
+This module relies on `shared/simulation-engine.js` which provides the core backtesting algorithm. The engine is reusable and will support future modules (Years to FI, Bucket Strategy, etc.)
+
+**Algorithm (simplified):**
+```
+For each historical 30-year period (1871-1901, 1872-1902, etc.):
+  Start with portfolio balance
+  Each year:
+    1. Withdraw annual amount
+    2. Check if portfolio depleted (failure)
+    3. Apply historical returns (weighted by allocation)
+    4. Inflate withdrawal for next year
+
+Calculate statistics:
+  - Success rate: % of periods that didn't fail
+  - Percentiles of final balances
+  - Best case: Highest ending balance (usually 1982 start)
+  - Worst case: Earliest failure (usually 1966 start)
+```
+
+**Data Structure:**
+```javascript
+inputs: {
+  startingBalance: number,
+  annualWithdrawal: number,
+  duration: number,  // years
+  allocation: {
+    stocks: number,  // 0-100
+    bonds: number,   // 0-100
+    cash: number     // 0-100
+  }
+}
+
+lastResults: {
+  totalScenarios: number,
+  successRate: number,  // 0-1
+  statistics: {
+    finalBalance: {
+      percentile5: number,
+      percentile25: number,
+      percentile50: number,
+      percentile75: number,
+      percentile95: number
+    },
+    bestCase: { startYearActual, finalBalance },
+    worstCase: { startYearActual, failureYear or finalBalance }
+  },
+  scenarios: [ /* all individual results */ ]
+}
+```
+
+**Public API:**
+```javascript
+getData() returns {
+  inputs: object,
+  lastResults: object
+}
+```
+
+**Key Implementation Details:**
+- Auto-loads historical data on page load
+- Runs ~125 scenarios in 1-3 seconds
+- Validates allocation totals 100%
+- Visual feedback for Portfolio/Budget pulls
+- Color-coded success rates: green (≥95%), yellow (≥85%), red (<85%)
+
+### 6. SIMULATION ENGINE (shared/simulation-engine.js)
+**Purpose:** Reusable historical backtesting engine for FIRE calculations
+
+**Core Functions:**
+- `loadHistoricalData()` - Loads Shiller data, auto-runs on page load
+- `runWithdrawalSimulation(params)` - Main entry point for retirement testing
+- `simulateSingleWithdrawal()` - Year-by-year simulation logic
+- `calculatePortfolioReturn()` - Weighted returns based on allocation
+- `calculateStatistics()` - Percentiles, best/worst cases
+- `validateParams()` - Input validation
+
+**Usage Example:**
+```javascript
+const results = SimulationEngine.runWithdrawalSimulation({
+  startingBalance: 1000000,
+  annualWithdrawal: 40000,
+  duration: 30,
+  allocation: { stocks: 60, bonds: 40, cash: 0 }
+});
+
+console.log('Success Rate:', results.successRate);
+// Expected: ~0.95 (95% for 4% rule)
+```
+
+**Validation:**
+- Tested against FICalc.org for accuracy
+- 4% withdrawal from $1M portfolio = ~95% success rate
+- Worst historical period: 1966 start (often fails year 28-29)
+- Best historical period: 1982 start (portfolio grows significantly)
+
+**Future Uses:**
+- Years to FI calculator (accumulation phase)
+- Bucket strategy testing
+- Withdrawal strategy comparison
+- Roth conversion timing
+
 HISTORICAL DATA
 ---------------
-File: /data/shiller_annual_data.json
+File: shiller_annual_data11262025.json (root directory)
 
 **Source:** Robert Shiller's stock market dataset
 **Coverage:** 1871-2024 (154 complete years)
 **Validation:** Tested against FICalc.org with 0.62% accuracy
+**Used By:** Simulation Engine (shared/simulation-engine.js)
 
 **Data Format:**
 ```json
@@ -327,28 +503,7 @@ MODULES TO BUILD - PRIORITY ORDER
 
 ### HIGH PRIORITY
 
-**1. Portfolio Module**
-**Purpose:** Track current savings and asset allocation
-
-**Inputs needed:**
-- Current portfolio value
-- Asset allocation (% stocks, % bonds, % cash)
-- Account types with balances (401k, IRA, Roth, Taxable, HSA)
-- Current savings rate ($/month or $/year)
-- Expected return assumptions (or use historical averages)
-
-**Why important:**
-- Feeds Years to FI calculator
-- Needed for retirement simulator
-- Shows progress toward FI number
-
-**Implementation notes:**
-- Could pull FI number from Budget module
-- Show "% to FI" progress bar
-- Allow multiple accounts with tax treatment flags
-- Calculate asset location optimization hints
-
-**2. Years to FI Calculator**
+**1. Years to FI Calculator**
 **Purpose:** Simple calculation of time to reach FI
 
 **Formula:**
@@ -366,39 +521,16 @@ MODULES TO BUILD - PRIORITY ORDER
 **Integration:**
 - Pulls from Budget: FI number
 - Pulls from Portfolio: current savings, savings rate
-- Could pull expected returns from historical data
+- Could use Simulation Engine for historical accumulation scenarios
+
+**Implementation Notes:**
+- Could use `SimulationEngine` to test accumulation with historical returns
+- Show distribution of years to FI across different historical periods
+- Compare to simple fixed-return calculation
 
 ### MEDIUM PRIORITY
 
-**3. Retirement Simulator**
-**Purpose:** Test retirement success with historical data
-
-**Features:**
-- Use Shiller historical data for backtesting
-- Set retirement year, portfolio size, withdrawal amount
-- Run simulation across all historical periods
-- Calculate success rate (% of periods that don't run out)
-- Show best/worst/median scenarios
-- Test different withdrawal strategies:
-  - Fixed dollar (inflation-adjusted)
-  - Fixed percentage
-  - Guardrails (reduce in down markets)
-  - Variable (based on portfolio performance)
-
-**Implementation:**
-- Load shiller_annual_data.json
-- For each starting year (1871-1994 for 30-year retirement):
-  - Simulate withdrawals + returns year by year
-  - Track if portfolio survives
-- Display success rate, sequence of returns risk
-- Show distribution of ending balances
-
-**Integration:**
-- Portfolio: starting balance, allocation
-- Budget: withdrawal amount
-- Could test reducing discretionary spending in bad years
-
-**4. Bucket Strategy Builder**
+**2. Bucket Strategy Builder**
 **Purpose:** Create 3-bucket portfolio allocation
 
 **Buckets:**
@@ -412,7 +544,7 @@ MODULES TO BUILD - PRIORITY ORDER
 - Test against historical data
 - Compare to simple allocation
 
-**5. Tax Calculator Enhancements**
+**3. Tax Calculator Enhancements**
 **Purpose:** More sophisticated tax optimization
 
 **Add:**
@@ -422,7 +554,7 @@ MODULES TO BUILD - PRIORITY ORDER
 - State taxes (optional, complex)
 - Medicare IRMAA brackets
 
-**6. Roth Conversion Optimizer**
+**4. Roth Conversion Optimizer**
 **Purpose:** Determine optimal Roth conversion amounts
 
 **Features:**
@@ -433,7 +565,7 @@ MODULES TO BUILD - PRIORITY ORDER
 
 ### LOW PRIORITY
 
-**7. Withdrawal Strategy Comparison**
+**5. Withdrawal Strategy Comparison**
 **Purpose:** Compare different withdrawal methods
 
 **Strategies to test:**
@@ -449,7 +581,7 @@ MODULES TO BUILD - PRIORITY ORDER
 - Failure modes
 - Best/worst case scenarios
 
-**8. Dashboard**
+**6. Dashboard**
 **Purpose:** Integrated view of entire plan
 
 **Features:**
@@ -459,9 +591,6 @@ MODULES TO BUILD - PRIORITY ORDER
 - Healthcare cost estimate
 - Visual timeline to FI
 - What-if scenarios
-
-**9. Bucket Strategy (detailed)**
-Already outlined above
 
 CODING CONVENTIONS
 ------------------
