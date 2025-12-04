@@ -7,3 +7,7 @@ Persistent "Close" button so don't have to scroll up to the top to exit
 
 Taxes
 backward tax calculations. 
+
+
+Portfolio
+Option for different portfolios. Port 1, Port 2, etc.
