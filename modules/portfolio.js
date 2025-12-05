@@ -526,22 +526,38 @@
             }
 
             // Calculate savings rate if Income module is available
-            // Savings rate = employee contributions only (not employer match/ESOP - that's not from your income)
+            // Savings rate = (employee contributions + leftover cash) / gross income
+            // Add contributions back to income since take-home already has 401k/IRA deducted
             try {
-                if (totalContributions > 0 && window.modules['income'] && window.modules['income'].getData) {
+                if (window.modules['income'] && window.modules['income'].getData) {
                     const incomeData = window.modules['income'].getData();
                     if (incomeData.annualTotal > 0) {
-                        const savingsRate = (totalContributions / incomeData.annualTotal * 100).toFixed(1);
-                        savingsRateHtml = `
-                            <div style="margin-top: 5px;">
-                                <strong>Savings Rate:</strong> ${savingsRate}% of income
-                            </div>
-                        `;
+                        // Calculate leftover cash (take-home minus expenses)
+                        const budgetData = window.modules['budget']?.getData();
+                        const leftoverCash = incomeData.annualTotal - (budgetData?.annualTotal || 0);
+
+                        // Total saved = contributions + leftover cash (if positive)
+                        const totalSaved = totalContributions + Math.max(0, leftoverCash);
+
+                        // Gross income = take-home + pre-tax contributions
+                        const grossIncome = incomeData.annualTotal + totalContributions;
+
+                        if (totalSaved > 0) {
+                            const savingsRate = (totalSaved / grossIncome * 100).toFixed(1);
+                            savingsRateHtml = `
+                                <div style="margin-top: 5px;">
+                                    <strong>Savings Rate:</strong> ${savingsRate}% of gross income
+                                </div>
+                                <div style="margin-top: 3px; color: #666; font-size: 0.9em;">
+                                    ($${totalContributions.toLocaleString()} contributions + $${Math.max(0, leftoverCash).toLocaleString()} leftover cash)
+                                </div>
+                            `;
+                        }
                     }
                 }
             } catch (e) {
-                // Income module not available
-                console.log('Income module not available for savings rate calculation');
+                // Income or Budget module not available
+                console.log('Income/Budget module not available for savings rate calculation');
             }
 
             // Build contributions section
