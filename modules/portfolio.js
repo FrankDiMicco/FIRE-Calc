@@ -63,6 +63,20 @@
                                        style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                             </div>
 
+                            <div style="margin-bottom: 10px;">
+                                <label style="display: block; margin-bottom: 5px;">Annual Contribution:</label>
+                                <input type="number" id="accountContribution" step="0.01" min="0" placeholder="0.00"
+                                       style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <small style="color: #666; display: block; margin-top: 3px;">How much you contribute to this account per year</small>
+                            </div>
+
+                            <div id="employerMatchSection" style="display: none; margin-bottom: 10px;">
+                                <label style="display: block; margin-bottom: 5px;">Annual Employer Match:</label>
+                                <input type="number" id="accountEmployerMatch" step="0.01" min="0" placeholder="0.00"
+                                       style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                <small style="color: #666; display: block; margin-top: 3px;">Employer contributions to this account per year</small>
+                            </div>
+
                             <div id="allocationSection" style="margin-bottom: 15px; padding: 15px; background: #f9f9f9; border-radius: 4px;">
                                 <label style="display: block; margin-bottom: 10px; font-weight: bold;">Asset Allocation:</label>
 
@@ -129,9 +143,10 @@
                 this.addAccount();
             });
 
-            // Handle account type changes to show/hide allocation
+            // Handle account type changes to show/hide allocation and employer match
             const accountTypeSelect = document.getElementById('accountType');
             const allocationSection = document.getElementById('allocationSection');
+            const employerMatchSection = document.getElementById('employerMatchSection');
 
             const handleAccountTypeChange = () => {
                 const accountType = accountTypeSelect.value;
@@ -142,6 +157,13 @@
                 } else {
                     // Show allocation for investment accounts
                     allocationSection.style.display = 'block';
+                }
+
+                // Show employer match field for 401k and 403b accounts
+                if (accountType === 'Traditional 401k' || accountType === 'Roth 401k' || accountType === '403b') {
+                    employerMatchSection.style.display = 'block';
+                } else {
+                    employerMatchSection.style.display = 'none';
                 }
             };
 
@@ -180,6 +202,8 @@
             const name = document.getElementById('accountName').value;
             const type = document.getElementById('accountType').value;
             const balance = parseFloat(document.getElementById('accountBalance').value);
+            const contribution = parseFloat(document.getElementById('accountContribution').value) || 0;
+            const employerMatch = parseFloat(document.getElementById('accountEmployerMatch').value) || 0;
 
             // Handle allocation based on account type
             let stocks, bonds, cash;
@@ -212,6 +236,8 @@
                     name,
                     type,
                     balance,
+                    contribution,
+                    employerMatch,
                     stocks_pct: stocks,
                     bonds_pct: bonds,
                     cash_pct: cash
@@ -229,6 +255,8 @@
                     name,
                     type,
                     balance,
+                    contribution,
+                    employerMatch,
                     stocks_pct: stocks,
                     bonds_pct: bonds,
                     cash_pct: cash
@@ -272,16 +300,27 @@
             document.getElementById('accountName').value = account.name;
             document.getElementById('accountType').value = account.type;
             document.getElementById('accountBalance').value = account.balance;
+            document.getElementById('accountContribution').value = account.contribution || 0;
+            document.getElementById('accountEmployerMatch').value = account.employerMatch || 0;
             document.getElementById('accountStocks').value = account.stocks_pct || 0;
             document.getElementById('accountBonds').value = account.bonds_pct || 0;
             document.getElementById('accountCash').value = account.cash_pct || 0;
 
             // Show/hide allocation section based on account type
             const allocationSection = document.getElementById('allocationSection');
+            const employerMatchSection = document.getElementById('employerMatchSection');
+
             if (account.type === 'Savings/Checking' || account.type === 'Crypto' || account.type === 'Gold' || account.type === 'ESOP') {
                 allocationSection.style.display = 'none';
             } else {
                 allocationSection.style.display = 'block';
+            }
+
+            // Show employer match for 401k and 403b accounts
+            if (account.type === 'Traditional 401k' || account.type === 'Roth 401k' || account.type === '403b') {
+                employerMatchSection.style.display = 'block';
+            } else {
+                employerMatchSection.style.display = 'none';
             }
 
             // Scroll to form
@@ -315,6 +354,22 @@
                     }
                 }
 
+                // Build contribution display
+                let contributionText = '';
+                const hasContribution = (account.contribution || 0) > 0;
+                const hasEmployerMatch = (account.employerMatch || 0) > 0;
+
+                if (hasContribution || hasEmployerMatch) {
+                    const parts = [];
+                    if (hasContribution) {
+                        parts.push(`$${account.contribution.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}/yr contribution`);
+                    }
+                    if (hasEmployerMatch) {
+                        parts.push(`$${account.employerMatch.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}/yr match`);
+                    }
+                    contributionText = `<div style="color: #2e7d32; font-size: 0.85em; margin-top: 3px;">${parts.join(' + ')}</div>`;
+                }
+
                 return `
                     <div style="padding: 15px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -324,6 +379,7 @@
                                 <div style="color: #666; margin-top: 5px; font-size: 1.1em;">
                                     <strong>$${account.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
                                 </div>
+                                ${contributionText}
                                 ${allocationText}
                             </div>
                             <div style="display: flex; gap: 8px; flex-shrink: 0;">
@@ -350,7 +406,12 @@
             // Calculate total portfolio value
             const totalValue = accounts.reduce((sum, account) => sum + account.balance, 0);
 
-            if (totalValue === 0) {
+            // Calculate total contributions
+            const totalContributions = accounts.reduce((sum, account) => sum + (account.contribution || 0), 0);
+            const totalEmployerMatch = accounts.reduce((sum, account) => sum + (account.employerMatch || 0), 0);
+            const totalSavings = totalContributions + totalEmployerMatch;
+
+            if (totalValue === 0 && totalSavings === 0) {
                 container.innerHTML = '<p style="color: #999;">Add accounts to see portfolio summary.</p>';
                 return;
             }
@@ -384,8 +445,10 @@
                 }
             });
 
-            // Try to get FI Number from Budget module for progress calculation
+            // Try to get FI Number from Budget module and Income from Income module
             let fiProgressHtml = '';
+            let savingsRateHtml = '';
+
             try {
                 if (window.modules['budget'] && window.modules['budget'].getData) {
                     const budgetData = window.modules['budget'].getData();
@@ -420,6 +483,42 @@
                 console.log('Budget module not available for FI calculation');
             }
 
+            // Calculate savings rate if Income module is available
+            try {
+                if (totalSavings > 0 && window.modules['income'] && window.modules['income'].getData) {
+                    const incomeData = window.modules['income'].getData();
+                    if (incomeData.annualTotal > 0) {
+                        const savingsRate = (totalSavings / incomeData.annualTotal * 100).toFixed(1);
+                        savingsRateHtml = `
+                            <div style="margin-top: 5px;">
+                                <strong>Savings Rate:</strong> ${savingsRate}% of income
+                            </div>
+                        `;
+                    }
+                }
+            } catch (e) {
+                // Income module not available
+                console.log('Income module not available for savings rate calculation');
+            }
+
+            // Build contributions section
+            let contributionsHtml = '';
+            if (totalSavings > 0) {
+                contributionsHtml = `
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+                        <strong>Annual Savings:</strong>
+                        <div style="margin-top: 8px;">
+                            ${totalContributions > 0 ? `<div style="margin-bottom: 5px;">Employee Contributions: $${totalContributions.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>` : ''}
+                            ${totalEmployerMatch > 0 ? `<div style="margin-bottom: 5px;">Employer Match: $${totalEmployerMatch.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>` : ''}
+                            <div style="margin-top: 8px; font-size: 1.05em;">
+                                <strong>Total: $${totalSavings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/year</strong>
+                            </div>
+                            ${savingsRateHtml}
+                        </div>
+                    </div>
+                `;
+            }
+
             // Build allocation display - only show asset classes with value > 0
             let allocationLines = [];
             if (totalStocks > 0) allocationLines.push(`<div style="margin-bottom: 5px;">Stocks: ${totalStocks.toFixed(1)}%</div>`);
@@ -441,6 +540,7 @@
                     <div style="margin-bottom: 10px;">
                         <strong>Number of Accounts:</strong> ${accounts.length}
                     </div>
+                    ${contributionsHtml}
                     <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
                         <strong>Overall Asset Allocation:</strong>
                         <div style="margin-top: 8px;">
@@ -484,6 +584,11 @@
         getData() {
             const totalValue = accounts.reduce((sum, account) => sum + account.balance, 0);
 
+            // Calculate total contributions
+            const totalContributions = accounts.reduce((sum, account) => sum + (account.contribution || 0), 0);
+            const totalEmployerMatch = accounts.reduce((sum, account) => sum + (account.employerMatch || 0), 0);
+            const totalSavings = totalContributions + totalEmployerMatch;
+
             // Calculate allocation across all asset classes
             let totalStocks = 0;
             let totalBonds = 0;
@@ -518,6 +623,9 @@
             return {
                 accounts,
                 totalValue,
+                totalContributions,
+                totalEmployerMatch,
+                totalSavings,
                 allocation: {
                     stocks: totalStocks,
                     bonds: totalBonds,

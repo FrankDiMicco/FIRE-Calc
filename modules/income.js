@@ -68,6 +68,24 @@
                             </div>
 
                             <div style="margin-bottom: 10px;">
+                                <label style="display: block; margin-bottom: 5px;">Tax Treatment:</label>
+                                <select id="incomeTaxTreatment"
+                                        style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option value="ordinary">Ordinary Income (taxed at regular rates)</option>
+                                    <option value="qualified">Qualified Dividends/LTCG (0%/15%/20%)</option>
+                                    <option value="tax-free">Tax-Free (Roth, Muni bonds, HSA)</option>
+                                    <option value="social-security">Social Security (0-85% taxable)</option>
+                                </select>
+                            </div>
+
+                            <div style="margin-bottom: 10px;">
+                                <label style="display: block; margin-bottom: 5px;">
+                                    <input type="checkbox" id="incomeInflationAdjusted"> Adjusts for inflation
+                                </label>
+                                <small style="color: #666; display: block; margin-left: 20px;">Check if this income grows with CPI (e.g., Social Security, some pensions)</small>
+                            </div>
+
+                            <div style="margin-bottom: 10px;">
                                 <a href="#" id="toggleAdvanced" style="color: #666; text-decoration: none; font-size: 0.9em;">
                                     ▶ Advanced Options
                                 </a>
@@ -154,6 +172,8 @@
             const type = document.getElementById('incomeType').value;
             const amount = parseFloat(document.getElementById('incomeAmount').value);
             const frequency = document.getElementById('incomeFrequency').value;
+            const taxTreatment = document.getElementById('incomeTaxTreatment').value;
+            const inflationAdjusted = document.getElementById('incomeInflationAdjusted').checked;
 
             // Get advanced options
             const startsInValue = document.getElementById('incomeStartsIn').value;
@@ -170,6 +190,8 @@
                     type,
                     amount,
                     frequency,
+                    taxTreatment,
+                    inflationAdjusted,
                     startsIn,
                     lastsFor
                 };
@@ -187,6 +209,8 @@
                     type,
                     amount,
                     frequency,
+                    taxTreatment,
+                    inflationAdjusted,
                     startsIn,
                     lastsFor
                 };
@@ -231,6 +255,8 @@
             document.getElementById('incomeType').value = income.type;
             document.getElementById('incomeAmount').value = income.amount;
             document.getElementById('incomeFrequency').value = income.frequency;
+            document.getElementById('incomeTaxTreatment').value = income.taxTreatment || 'ordinary';
+            document.getElementById('incomeInflationAdjusted').checked = income.inflationAdjusted || false;
 
             // Show advanced options if needed
             if (income.startsIn > 0 || income.lastsFor !== null) {
@@ -258,6 +284,16 @@
                 'other': 'Other'
             };
             return labels[type] || type;
+        },
+
+        getTaxTreatmentLabel(treatment) {
+            const labels = {
+                'ordinary': 'Ordinary',
+                'qualified': 'Qualified',
+                'tax-free': 'Tax-Free',
+                'social-security': 'Social Security'
+            };
+            return labels[treatment] || treatment;
         },
 
         renderIncomeList() {
@@ -291,6 +327,11 @@
                     timingText = `<div style="color: #888; font-size: 0.85em; margin-top: 3px;">${parts.join(', ')}</div>`;
                 }
 
+                // Build tax/inflation badges
+                const taxTreatment = income.taxTreatment || 'ordinary';
+                const inflationBadge = income.inflationAdjusted ?
+                    '<span style="background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 3px; font-size: 0.75em; margin-left: 5px;">Inflation-Adjusted</span>' : '';
+
                 return `
                     <div style="padding: 15px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -299,6 +340,10 @@
                                 <span style="color: #666; font-size: 0.85em;"> (${this.getTypeLabel(income.type)})</span>
                                 <div style="color: #666; margin-top: 5px;">
                                     $${income.amount.toFixed(2)} ${income.frequency} ($${annualAmount.toFixed(2)}/year)
+                                </div>
+                                <div style="margin-top: 5px;">
+                                    <span style="color: #666; font-size: 0.85em;">Tax: ${this.getTaxTreatmentLabel(taxTreatment)}</span>
+                                    ${inflationBadge}
                                 </div>
                                 ${timingText}
                             </div>
@@ -338,14 +383,40 @@
                 byType[income.type] += annual;
             });
 
-            let breakdownHtml = '';
+            // Calculate totals by tax treatment
+            const byTaxTreatment = {
+                ordinary: 0,
+                qualified: 0,
+                'tax-free': 0,
+                'social-security': 0
+            };
+            incomeSources.forEach(income => {
+                const annual = income.frequency === 'monthly' ? income.amount * 12 : income.amount;
+                const treatment = income.taxTreatment || 'ordinary';
+                byTaxTreatment[treatment] += annual;
+            });
+
+            let typeBreakdownHtml = '';
             if (Object.keys(byType).length > 0) {
-                breakdownHtml = '<div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">';
-                breakdownHtml += '<strong>By Type:</strong>';
+                typeBreakdownHtml = '<div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">';
+                typeBreakdownHtml += '<strong>By Type:</strong>';
                 for (const [type, amount] of Object.entries(byType)) {
-                    breakdownHtml += `<div style="margin-top: 5px; color: #666;">${this.getTypeLabel(type)}: $${amount.toFixed(2)}</div>`;
+                    typeBreakdownHtml += `<div style="margin-top: 5px; color: #666;">${this.getTypeLabel(type)}: $${amount.toFixed(2)}</div>`;
                 }
-                breakdownHtml += '</div>';
+                typeBreakdownHtml += '</div>';
+            }
+
+            let taxBreakdownHtml = '';
+            const hasNonZeroTax = Object.values(byTaxTreatment).some(v => v > 0);
+            if (hasNonZeroTax) {
+                taxBreakdownHtml = '<div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">';
+                taxBreakdownHtml += '<strong>By Tax Treatment:</strong>';
+                for (const [treatment, amount] of Object.entries(byTaxTreatment)) {
+                    if (amount > 0) {
+                        taxBreakdownHtml += `<div style="margin-top: 5px; color: #666;">${this.getTaxTreatmentLabel(treatment)}: $${amount.toFixed(2)}</div>`;
+                    }
+                }
+                taxBreakdownHtml += '</div>';
             }
 
             container.innerHTML = `
@@ -356,7 +427,8 @@
                     <div style="color: #666;">
                         <strong>Monthly Average:</strong> $${(annualTotal / 12).toFixed(2)}
                     </div>
-                    ${breakdownHtml}
+                    ${typeBreakdownHtml}
+                    ${taxBreakdownHtml}
                 </div>
             `;
         },
@@ -405,11 +477,25 @@
                 byType[income.type] += annual;
             });
 
+            // Calculate by tax treatment
+            const byTaxTreatment = {
+                ordinary: 0,
+                qualified: 0,
+                'tax-free': 0,
+                'social-security': 0
+            };
+            incomeSources.forEach(income => {
+                const annual = income.frequency === 'monthly' ? income.amount * 12 : income.amount;
+                const treatment = income.taxTreatment || 'ordinary';
+                byTaxTreatment[treatment] += annual;
+            });
+
             return {
                 incomeSources,
                 annualTotal,
                 monthlyAverage: annualTotal / 12,
-                byType
+                byType,
+                byTaxTreatment
             };
         }
     };
