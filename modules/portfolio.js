@@ -70,6 +70,15 @@
                                 <small style="color: #666; display: block; margin-top: 3px;">How much you contribute to this account per year</small>
                             </div>
 
+                            <div id="contributionTimingSection" style="display: none; margin-bottom: 10px; padding: 15px; background: #f0f8ff; border-radius: 4px;">
+                                <div style="margin-bottom: 10px;">
+                                    <label style="display: block; margin-bottom: 5px;">Contribution lasts for (years):</label>
+                                    <input type="number" id="accountContributionYears" min="1" step="1" placeholder="Until retirement"
+                                           style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <small style="color: #666; display: block; margin-top: 3px;">How many years will you keep contributing? Leave blank for indefinite</small>
+                                </div>
+                            </div>
+
                             <div id="employerMatchSection" style="display: none; margin-bottom: 10px;">
                                 <label style="display: block; margin-bottom: 5px;">Annual Employer Match:</label>
                                 <input type="number" id="accountEmployerMatch" step="0.01" min="0" placeholder="0.00"
@@ -147,6 +156,8 @@
             const accountTypeSelect = document.getElementById('accountType');
             const allocationSection = document.getElementById('allocationSection');
             const employerMatchSection = document.getElementById('employerMatchSection');
+            const contributionTimingSection = document.getElementById('contributionTimingSection');
+            const contributionInput = document.getElementById('accountContribution');
 
             const handleAccountTypeChange = () => {
                 const accountType = accountTypeSelect.value;
@@ -167,7 +178,18 @@
                 }
             };
 
+            // Show contribution timing section when user enters a contribution amount
+            const handleContributionChange = () => {
+                const contributionAmount = parseFloat(contributionInput.value) || 0;
+                if (contributionAmount > 0) {
+                    contributionTimingSection.style.display = 'block';
+                } else {
+                    contributionTimingSection.style.display = 'none';
+                }
+            };
+
             accountTypeSelect.addEventListener('change', handleAccountTypeChange);
+            contributionInput.addEventListener('input', handleContributionChange);
 
             // Add real-time validation for allocation percentages
             const stocksInput = document.getElementById('accountStocks');
@@ -203,6 +225,8 @@
             const type = document.getElementById('accountType').value;
             const balance = parseFloat(document.getElementById('accountBalance').value);
             const contribution = parseFloat(document.getElementById('accountContribution').value) || 0;
+            const contributionYears = document.getElementById('accountContributionYears').value ?
+                                      parseInt(document.getElementById('accountContributionYears').value) : null;
             const employerMatch = parseFloat(document.getElementById('accountEmployerMatch').value) || 0;
 
             // Handle allocation based on account type
@@ -237,6 +261,7 @@
                     type,
                     balance,
                     contribution,
+                    contributionYears,
                     employerMatch,
                     stocks_pct: stocks,
                     bonds_pct: bonds,
@@ -256,6 +281,7 @@
                     type,
                     balance,
                     contribution,
+                    contributionYears,
                     employerMatch,
                     stocks_pct: stocks,
                     bonds_pct: bonds,
@@ -301,14 +327,16 @@
             document.getElementById('accountType').value = account.type;
             document.getElementById('accountBalance').value = account.balance;
             document.getElementById('accountContribution').value = account.contribution || 0;
+            document.getElementById('accountContributionYears').value = account.contributionYears || '';
             document.getElementById('accountEmployerMatch').value = account.employerMatch || 0;
             document.getElementById('accountStocks').value = account.stocks_pct || 0;
             document.getElementById('accountBonds').value = account.bonds_pct || 0;
             document.getElementById('accountCash').value = account.cash_pct || 0;
 
-            // Show/hide allocation section based on account type
+            // Show/hide sections based on account type and contribution
             const allocationSection = document.getElementById('allocationSection');
             const employerMatchSection = document.getElementById('employerMatchSection');
+            const contributionTimingSection = document.getElementById('contributionTimingSection');
 
             if (account.type === 'Savings/Checking' || account.type === 'Crypto' || account.type === 'Gold' || account.type === 'ESOP') {
                 allocationSection.style.display = 'none';
@@ -321,6 +349,13 @@
                 employerMatchSection.style.display = 'block';
             } else {
                 employerMatchSection.style.display = 'none';
+            }
+
+            // Show contribution timing if contribution exists
+            if ((account.contribution || 0) > 0) {
+                contributionTimingSection.style.display = 'block';
+            } else {
+                contributionTimingSection.style.display = 'none';
             }
 
             // Scroll to form
@@ -367,7 +402,14 @@
                     if (hasEmployerMatch) {
                         parts.push(`$${account.employerMatch.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}/yr match`);
                     }
-                    contributionText = `<div style="color: #2e7d32; font-size: 0.85em; margin-top: 3px;">${parts.join(' + ')}</div>`;
+                    let contributionLine = parts.join(' + ');
+
+                    // Add duration if specified
+                    if (account.contributionYears) {
+                        contributionLine += ` for ${account.contributionYears} year${account.contributionYears > 1 ? 's' : ''}`;
+                    }
+
+                    contributionText = `<div style="color: #2e7d32; font-size: 0.85em; margin-top: 3px;">${contributionLine}</div>`;
                 }
 
                 return `
