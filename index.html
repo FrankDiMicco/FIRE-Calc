@@ -141,8 +141,12 @@
                 <h3>Portfolio</h3>
             </div>
 
+            <div class="card" onclick="openModule('income')">
+                <h3>Income</h3>
+            </div>
+
             <div class="card" onclick="openModule('budget')">
-                <h3>Budget Builder</h3>
+                <h3>Budget</h3>
             </div>
 
             <div class="card" onclick="openModule('tax')">
@@ -196,13 +200,14 @@
     <script>
         // Module metadata
         const moduleInfo = {
-            'budget': { title: 'Budget Builder', file: 'modules/budget.js' },
             'portfolio': { title: 'Portfolio', file: 'modules/portfolio.js' },
+            'income': { title: 'Income', file: 'modules/income.js' },
+            'budget': { title: 'Budget', file: 'modules/budget.js' },
+            'tax': { title: 'Tax Calculator', file: 'modules/tax.js' },
+            'aca': { title: 'ACA Subsidy', file: 'modules/aca.js' },
             'years-to-fi': { title: 'Years to FI', file: 'modules/years-to-fi.js' },
             'retirement-sim': { title: 'Retirement Simulator', file: 'modules/retirement-sim.js' },
             'bucket': { title: 'Bucket Strategy', file: 'modules/bucket.js' },
-            'tax': { title: 'Tax Calculator', file: 'modules/tax.js' },
-            'aca': { title: 'ACA Subsidy', file: 'modules/aca.js' },
             'roth': { title: 'Roth Conversions', file: 'modules/roth.js' },
             'withdrawal': { title: 'Withdrawal Strategy', file: 'modules/withdrawal.js' },
             'dashboard': { title: 'Dashboard', file: 'modules/dashboard.js' }
