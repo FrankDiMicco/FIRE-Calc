@@ -526,11 +526,12 @@
             }
 
             // Calculate savings rate if Income module is available
+            // Savings rate = employee contributions only (not employer match/ESOP - that's not from your income)
             try {
-                if (totalSavings > 0 && window.modules['income'] && window.modules['income'].getData) {
+                if (totalContributions > 0 && window.modules['income'] && window.modules['income'].getData) {
                     const incomeData = window.modules['income'].getData();
                     if (incomeData.annualTotal > 0) {
-                        const savingsRate = (totalSavings / incomeData.annualTotal * 100).toFixed(1);
+                        const savingsRate = (totalContributions / incomeData.annualTotal * 100).toFixed(1);
                         savingsRateHtml = `
                             <div style="margin-top: 5px;">
                                 <strong>Savings Rate:</strong> ${savingsRate}% of income
