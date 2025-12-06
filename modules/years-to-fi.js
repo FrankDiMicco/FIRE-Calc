@@ -314,7 +314,7 @@
                                 </small>
                             </div>
 
-                            <button type="submit"
+                            <button type="button" onclick="window.modules['years-to-fi'].calculate()"
                                     style="background: #333; color: white; border: none; padding: 10px 20px;
                                            border-radius: 4px; cursor: pointer; font-size: 1em;">
                                 Calculate Years to FI
@@ -342,12 +342,6 @@
                     </div>
                 </div>
             `;
-
-            // Attach event listeners
-            document.getElementById('yearsToFiForm').addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.calculate();
-            });
 
             // Track changes to mark fields as custom
             document.getElementById('fiNumber').addEventListener('input', () => {
