@@ -13,6 +13,7 @@
         currentPortfolioCustom: false,
         annualSavings: 0,
         annualSavingsCustom: false,
+        calculationMode: 'historical', // 'historical' or 'custom'
         expectedReturn: 7.0
     };
     let lastResults = null;
@@ -259,7 +260,7 @@
                                 <label style="display: block; margin-bottom: 5px;">
                                     FI Number (Target):${fiNumberLabel}
                                 </label>
-                                <input type="number" id="fiNumber" required step="0.01" min="0" value="${inputs.fiNumber}"
+                                <input type="number" id="fiNumber" step="0.01" min="0" value="${inputs.fiNumber}"
                                        style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; ${fiNumberStyle}">
                                 ${fiNumberReset}
                                 ${!inputs.fiNumberCustom ? '<small style="color: #666; display: block; margin-top: 3px;">Auto-populated from Budget module (25× annual expenses)</small>' : ''}
@@ -269,7 +270,7 @@
                                 <label style="display: block; margin-bottom: 5px;">
                                     Current Portfolio Value:${portfolioLabel}
                                 </label>
-                                <input type="number" id="currentPortfolio" required step="0.01" min="0" value="${inputs.currentPortfolio}"
+                                <input type="number" id="currentPortfolio" step="0.01" min="0" value="${inputs.currentPortfolio}"
                                        style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; ${portfolioStyle}">
                                 ${portfolioReset}
                                 ${!inputs.currentPortfolioCustom ? '<small style="color: #666; display: block; margin-top: 3px;">Auto-populated from Portfolio module</small>' : ''}
@@ -279,15 +280,32 @@
                                 <label style="display: block; margin-bottom: 5px;">
                                     Annual Savings (Contributions + Leftover Cash):${savingsLabel}
                                 </label>
-                                <input type="number" id="annualSavings" required step="0.01" min="0" value="${inputs.annualSavings}"
+                                <input type="number" id="annualSavings" step="0.01" min="0" value="${inputs.annualSavings}"
                                        style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; ${savingsStyle}">
                                 ${savingsReset}
                                 ${!inputs.annualSavingsCustom ? '<small style="color: #666; display: block; margin-top: 3px;">Auto-calculated from Portfolio, Income, and Budget modules</small>' : ''}
                             </div>
 
                             <div style="margin-bottom: 15px;">
+                                <label style="display: block; margin-bottom: 8px;"><strong>Calculation Method:</strong></label>
+                                <div style="margin-bottom: 10px;">
+                                    <label style="display: block; margin-bottom: 5px; cursor: pointer;">
+                                        <input type="radio" name="calculationMode" value="historical" ${inputs.calculationMode === 'historical' ? 'checked' : ''}
+                                               onchange="window.modules['years-to-fi'].setCalculationMode('historical')">
+                                        Historical Analysis (uses actual market data 1871-2024)
+                                    </label>
+                                    <label style="display: block; cursor: pointer;">
+                                        <input type="radio" name="calculationMode" value="custom" ${inputs.calculationMode === 'custom' ? 'checked' : ''}
+                                               onchange="window.modules['years-to-fi'].setCalculationMode('custom')">
+                                        Custom Return Rate
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div id="customReturnSection" style="display: ${inputs.calculationMode === 'custom' ? 'block' : 'none'}; margin-bottom: 15px;">
                                 <label style="display: block; margin-bottom: 5px;">Expected Annual Return (%):</label>
-                                <input type="number" id="expectedReturn" required step="0.1" min="0" max="20" value="${inputs.expectedReturn}"
+                                <input type="number" id="expectedReturn" step="0.1" min="0" max="20" value="${inputs.expectedReturn}"
+                                       ${inputs.calculationMode === 'custom' ? 'required' : ''}
                                        style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                                 <small style="color: #666; display: block; margin-top: 3px;">
                                     Real return (after inflation). Historical average: ~7%
@@ -348,10 +366,13 @@
                 this.render();
             });
 
-            document.getElementById('expectedReturn').addEventListener('input', () => {
-                inputs.expectedReturn = parseFloat(document.getElementById('expectedReturn').value);
-                this.save();
-            });
+            const expectedReturnInput = document.getElementById('expectedReturn');
+            if (expectedReturnInput) {
+                expectedReturnInput.addEventListener('input', () => {
+                    inputs.expectedReturn = parseFloat(expectedReturnInput.value);
+                    this.save();
+                });
+            }
         },
 
         refreshData() {
@@ -390,6 +411,12 @@
             this.render();
         },
 
+        setCalculationMode(mode) {
+            inputs.calculationMode = mode;
+            this.save();
+            this.render();
+        },
+
         resetField(fieldName) {
             // Clear custom flag
             if (fieldName === 'fiNumber') {
@@ -411,7 +438,16 @@
             inputs.fiNumber = parseFloat(document.getElementById('fiNumber').value);
             inputs.currentPortfolio = parseFloat(document.getElementById('currentPortfolio').value);
             inputs.annualSavings = parseFloat(document.getElementById('annualSavings').value);
-            inputs.expectedReturn = parseFloat(document.getElementById('expectedReturn').value) / 100;
+
+            console.log('=== Calculate Years to FI ===');
+            console.log('FI Number:', inputs.fiNumber);
+            console.log('Current Portfolio:', inputs.currentPortfolio);
+            console.log('Annual Savings:', inputs.annualSavings);
+            console.log('Progress:', (inputs.currentPortfolio / inputs.fiNumber * 100).toFixed(1) + '%');
+
+            if (inputs.calculationMode === 'custom') {
+                inputs.expectedReturn = parseFloat(document.getElementById('expectedReturn').value) / 100;
+            }
 
             // Validate
             if (inputs.fiNumber <= 0 || inputs.currentPortfolio < 0 || inputs.annualSavings < 0) {
@@ -422,7 +458,8 @@
                 // Already at FI
                 lastResults = {
                     alreadyFI: true,
-                    currentProgress: 100
+                    currentProgress: 100,
+                    mode: inputs.calculationMode
                 };
                 this.save();
                 this.displayResults(lastResults);
@@ -433,21 +470,25 @@
                 return;
             }
 
-            // Simple calculation (with compound growth)
-            const yearsSimple = this.calculateYearsToFI(
-                inputs.currentPortfolio,
-                inputs.fiNumber,
-                inputs.annualSavings,
-                inputs.expectedReturn
-            );
-
-            // Historical simulation
+            let yearsSimple = null;
             let historicalResults = null;
-            if (window.SimulationEngine && window.SimulationEngine.isDataLoaded()) {
-                historicalResults = this.runHistoricalSimulation(
+
+            if (inputs.calculationMode === 'historical') {
+                // Historical mode: only run historical simulation
+                if (window.SimulationEngine && window.SimulationEngine.isDataLoaded()) {
+                    historicalResults = this.runHistoricalSimulation(
+                        inputs.currentPortfolio,
+                        inputs.fiNumber,
+                        inputs.annualSavings
+                    );
+                }
+            } else {
+                // Custom mode: calculate with expected return
+                yearsSimple = this.calculateYearsToFI(
                     inputs.currentPortfolio,
                     inputs.fiNumber,
-                    inputs.annualSavings
+                    inputs.annualSavings,
+                    inputs.expectedReturn
                 );
             }
 
@@ -455,7 +496,8 @@
             lastResults = {
                 yearsSimple,
                 historicalResults,
-                currentProgress: (inputs.currentPortfolio / inputs.fiNumber * 100).toFixed(1)
+                currentProgress: (inputs.currentPortfolio / inputs.fiNumber * 100).toFixed(1),
+                mode: inputs.calculationMode
             };
 
             this.save();
@@ -487,6 +529,56 @@
                 return null;
             }
 
+            // Get actual portfolio allocation from Portfolio module or localStorage
+            let allocation = { stocks: 60, bonds: 40, cash: 0 }; // Default fallback
+
+            try {
+                let portfolioData = window.modules?.portfolio?.getData();
+
+                if (!portfolioData) {
+                    const savedPortfolioData = StateManager.load('portfolio');
+                    if (savedPortfolioData && savedPortfolioData.accounts) {
+                        // Calculate allocation from saved accounts (same logic as portfolio.js)
+                        const accounts = savedPortfolioData.accounts;
+                        const totalValue = accounts.reduce((sum, account) => sum + (account.balance || 0), 0);
+
+                        if (totalValue > 0) {
+                            let totalStocks = 0;
+                            let totalBonds = 0;
+                            let totalCash = 0;
+
+                            accounts.forEach(account => {
+                                const accountValue = account.balance;
+                                const weight = accountValue / totalValue;
+
+                                if (account.type === 'Savings/Checking') {
+                                    totalCash += 100 * weight;
+                                } else if (account.type === 'Crypto' || account.type === 'Gold' || account.type === 'ESOP') {
+                                    // Treat alternative assets as stocks for historical simulation
+                                    totalStocks += 100 * weight;
+                                } else {
+                                    totalStocks += (account.stocks_pct || 0) * weight;
+                                    totalBonds += (account.bonds_pct || 0) * weight;
+                                    totalCash += (account.cash_pct || 0) * weight;
+                                }
+                            });
+
+                            allocation = {
+                                stocks: totalStocks,
+                                bonds: totalBonds,
+                                cash: totalCash
+                            };
+                        }
+                    }
+                } else if (portfolioData.allocation) {
+                    allocation = portfolioData.allocation;
+                }
+            } catch (e) {
+                console.log('Could not get portfolio allocation, using 60/40 default');
+            }
+
+            console.log('Using portfolio allocation for historical sim:', allocation);
+
             const results = [];
             const maxYears = 50; // Cap at 50 years
 
@@ -503,10 +595,12 @@
                     // Add annual contribution at beginning of year
                     balance += annualContribution;
 
-                    // Apply market return (assume 60/40 stocks/bonds for accumulation)
+                    // Apply market return using actual portfolio allocation
                     const stockReturn = yearData.stock_return || 0;
                     const bondReturn = yearData.bond_return || 0;
-                    const portfolioReturn = (stockReturn * 0.6) + (bondReturn * 0.4);
+                    const portfolioReturn = (stockReturn * allocation.stocks / 100) +
+                                           (bondReturn * allocation.bonds / 100);
+                    // Cash returns 0%
 
                     balance *= (1 + portfolioReturn);
 
@@ -545,7 +639,8 @@
                 percentile50,
                 percentile90,
                 min,
-                max
+                max,
+                allocation: allocation
             };
         },
 
@@ -569,8 +664,8 @@
                 return;
             }
 
-            const yearsSimple = results.yearsSimple;
             const currentProgress = results.currentProgress;
+            const mode = results.mode || 'historical';
 
             let html = `
                 <div style="background: #f5f5f5; padding: 20px; border-radius: 4px; margin-bottom: 20px;">
@@ -585,27 +680,38 @@
                         </div>
                     </div>
                 </div>
-
-                <div style="background: #e3f2fd; padding: 20px; border-radius: 4px; margin-bottom: 20px;">
-                    <h4 style="margin: 0 0 10px 0;">Simple Calculation</h4>
-                    <div style="font-size: 1.5em; margin-bottom: 10px;">
-                        <strong>${yearsSimple.toFixed(1)} years</strong>
-                    </div>
-                    <div style="color: #666; font-size: 0.9em;">
-                        Assumes ${(inputs.expectedReturn * 100).toFixed(1)}% annual return
-                    </div>
-                </div>
             `;
 
-            // Add historical results if available
+            // Show results based on mode
+            if (mode === 'custom' && results.yearsSimple !== null) {
+                // Custom mode: show simple calculation
+                html += `
+                    <div style="background: #e3f2fd; padding: 20px; border-radius: 4px; margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 10px 0;">Estimated Time to FI</h4>
+                        <div style="font-size: 1.5em; margin-bottom: 10px;">
+                            <strong>${results.yearsSimple.toFixed(1)} years</strong>
+                        </div>
+                        <div style="color: #666; font-size: 0.9em;">
+                            Assumes ${(inputs.expectedReturn * 100).toFixed(1)}% annual return
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Add historical results if available (shown in both modes, but primary in historical mode)
             if (results.historicalResults) {
                 const hist = results.historicalResults;
+                const allocInfo = results.historicalResults.allocation ?
+                    `Using ${results.historicalResults.allocation.stocks.toFixed(0)}% stocks / ${results.historicalResults.allocation.bonds.toFixed(0)}% bonds allocation from your Portfolio` :
+                    '';
+
                 html += `
                     <div style="background: #fff3e0; padding: 20px; border-radius: 4px; margin-bottom: 20px;">
                         <h4 style="margin: 0 0 10px 0;">Historical Analysis</h4>
-                        <p style="color: #666; font-size: 0.9em; margin-bottom: 15px;">
+                        <p style="color: #666; font-size: 0.9em; margin-bottom: 5px;">
                             Based on ${hist.totalScenarios} historical market scenarios (1871-2024)
                         </p>
+                        ${allocInfo ? `<p style="color: #666; font-size: 0.85em; margin-bottom: 15px;">${allocInfo}</p>` : ''}
                         <div style="margin-bottom: 10px;">
                             <strong>Range:</strong> ${hist.min}-${hist.max} years
                         </div>
@@ -620,12 +726,13 @@
                         </div>
                     </div>
                 `;
-            } else {
+            } else if (mode === 'historical') {
+                // Historical mode but data not available
                 html += `
                     <div style="background: #fff3e0; padding: 20px; border-radius: 4px; margin-bottom: 20px;">
                         <h4 style="margin: 0 0 10px 0;">Historical Analysis</h4>
                         <p style="color: #999;">
-                            Historical data not loaded. Refresh the page to enable historical analysis.
+                            Historical data not loaded. Refresh the page to enable historical analysis, or switch to "Custom Return Rate" mode.
                         </p>
                     </div>
                 `;
@@ -662,6 +769,7 @@
                     currentPortfolioCustom: false,
                     annualSavings: 0,
                     annualSavingsCustom: false,
+                    calculationMode: 'historical',
                     expectedReturn: 7.0
                 };
                 lastResults = null;
