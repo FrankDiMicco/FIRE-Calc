@@ -8,21 +8,35 @@
     // Module state
     let inputs = {
         fiNumber: 0,
+        fiNumberCustom: false,
         currentPortfolio: 0,
+        currentPortfolioCustom: false,
         annualSavings: 0,
-        expectedReturn: 7.0 // Default 7% real return
+        annualSavingsCustom: false,
+        expectedReturn: 7.0
     };
     let lastResults = null;
 
     // Module definition
     window.modules['years-to-fi'] = {
         init() {
+            console.log('Years to FI module initializing...');
+
             // Load saved data
             const savedData = StateManager.load('years-to-fi');
-            if (savedData) {
-                inputs = savedData.inputs || inputs;
+            if (savedData && savedData.inputs) {
+                inputs = { ...inputs, ...savedData.inputs };
                 lastResults = savedData.lastResults || null;
             }
+
+            // Check which modules are available
+            console.log('Checking module availability:');
+            console.log('  Budget module:', window.modules?.budget ? '✓ loaded' : '✗ not loaded');
+            console.log('  Portfolio module:', window.modules?.portfolio ? '✓ loaded' : '✗ not loaded');
+            console.log('  Income module:', window.modules?.income ? '✓ loaded' : '✗ not loaded');
+
+            // Auto-populate non-custom fields from source modules
+            this.autoPopulateFields();
 
             // Render the module UI
             this.render();
@@ -33,58 +47,243 @@
             }
         },
 
+        getDataStatusHtml() {
+            // Check which modules have data - check localStorage directly
+            const savedBudget = StateManager.load('budget');
+            const savedPortfolio = StateManager.load('portfolio');
+            const savedIncome = StateManager.load('income');
+
+            console.log('Checking data status:');
+            console.log('  savedBudget:', savedBudget);
+            console.log('  savedPortfolio:', savedPortfolio);
+            console.log('  savedIncome:', savedIncome);
+
+            const budgetOk = savedBudget && savedBudget.annualTotal > 0;
+            const portfolioOk = savedPortfolio && savedPortfolio.accounts && savedPortfolio.accounts.length > 0;
+            const incomeOk = savedIncome && savedIncome.incomeSources && savedIncome.incomeSources.length > 0;
+
+            console.log('  budgetOk:', budgetOk, '(annualTotal:', savedBudget?.annualTotal, ')');
+            console.log('  portfolioOk:', portfolioOk, '(accounts:', savedPortfolio?.accounts?.length, ')');
+            console.log('  incomeOk:', incomeOk, '(sources:', savedIncome?.incomeSources?.length, ')');
+
+            const allOk = budgetOk && portfolioOk && incomeOk;
+
+            if (allOk) {
+                return `
+                    <div style="background: #e8f5e9; padding: 15px; border-radius: 4px; margin-bottom: 20px; border-left: 4px solid #4caf50;">
+                        <strong style="color: #2e7d32;">✓ All required data available</strong>
+                        <div style="color: #666; font-size: 0.9em; margin-top: 5px;">
+                            Budget, Portfolio, and Income modules have data
+                        </div>
+                    </div>
+                `;
+            } else {
+                const missing = [];
+                if (!budgetOk) missing.push('Budget (add expenses)');
+                if (!portfolioOk) missing.push('Portfolio (add accounts)');
+                if (!incomeOk) missing.push('Income (add income sources)');
+
+                return `
+                    <div style="background: #fff3e0; padding: 15px; border-radius: 4px; margin-bottom: 20px; border-left: 4px solid #ff9800;">
+                        <strong style="color: #e65100;">⚠ Missing data from other modules</strong>
+                        <div style="color: #666; font-size: 0.9em; margin-top: 5px;">
+                            Please set up: ${missing.join(', ')}
+                        </div>
+                        <div style="color: #666; font-size: 0.85em; margin-top: 5px;">
+                            Click on the module cards from the main menu first, then return here and click "Refresh Data"
+                        </div>
+                    </div>
+                `;
+            }
+        },
+
+        autoPopulateFields() {
+            // FI Number from Budget - read directly from localStorage
+            if (!inputs.fiNumberCustom) {
+                try {
+                    // Try loaded module first
+                    let budgetData = window.modules?.budget?.getData();
+
+                    // If module not loaded, read directly from localStorage
+                    if (!budgetData) {
+                        const savedBudgetData = StateManager.load('budget');
+                        if (savedBudgetData) {
+                            // Calculate FI number same way budget module does
+                            const annualTotal = savedBudgetData.annualTotal || 0;
+                            const withdrawalRate = savedBudgetData.withdrawalRate || 4;
+                            budgetData = {
+                                fiNumber: (annualTotal / withdrawalRate) * 100,
+                                annualTotal: annualTotal
+                            };
+                        }
+                    }
+
+                    if (budgetData && budgetData.fiNumber > 0) {
+                        inputs.fiNumber = budgetData.fiNumber;
+                        console.log('✓ Auto-populated FI Number from Budget:', inputs.fiNumber);
+                    }
+                } catch (e) {
+                    console.log('Could not pull FI number from Budget module');
+                }
+            }
+
+            // Current Portfolio from Portfolio - read directly from localStorage
+            if (!inputs.currentPortfolioCustom) {
+                try {
+                    // Try loaded module first
+                    let portfolioData = window.modules?.portfolio?.getData();
+
+                    // If module not loaded, read directly from localStorage
+                    if (!portfolioData) {
+                        const savedPortfolioData = StateManager.load('portfolio');
+                        if (savedPortfolioData && savedPortfolioData.accounts) {
+                            const accounts = savedPortfolioData.accounts;
+                            const totalValue = accounts.reduce((sum, account) => sum + (account.balance || 0), 0);
+                            const totalContributions = accounts.reduce((sum, account) => sum + (account.contribution || 0), 0);
+                            const totalEmployerMatch = accounts.reduce((sum, account) => sum + (account.employerMatch || 0), 0);
+                            portfolioData = {
+                                totalValue: totalValue,
+                                totalContributions: totalContributions,
+                                totalEmployerMatch: totalEmployerMatch,
+                                totalSavings: totalContributions + totalEmployerMatch
+                            };
+                        }
+                    }
+
+                    if (portfolioData && portfolioData.totalValue >= 0) {
+                        inputs.currentPortfolio = portfolioData.totalValue;
+                        console.log('✓ Auto-populated Portfolio Value:', inputs.currentPortfolio);
+                    }
+                } catch (e) {
+                    console.log('Could not pull portfolio value from Portfolio module');
+                }
+            }
+
+            // Annual Savings = contributions + leftover cash - read directly from localStorage
+            if (!inputs.annualSavingsCustom) {
+                try {
+                    // Try loaded modules first
+                    let portfolioData = window.modules?.portfolio?.getData();
+                    let incomeData = window.modules?.income?.getData();
+                    let budgetData = window.modules?.budget?.getData();
+
+                    // If modules not loaded, read directly from localStorage
+                    if (!portfolioData) {
+                        const savedPortfolioData = StateManager.load('portfolio');
+                        if (savedPortfolioData && savedPortfolioData.accounts) {
+                            const accounts = savedPortfolioData.accounts;
+                            const totalContributions = accounts.reduce((sum, account) => sum + (account.contribution || 0), 0);
+                            const totalEmployerMatch = accounts.reduce((sum, account) => sum + (account.employerMatch || 0), 0);
+                            portfolioData = {
+                                totalContributions: totalContributions,
+                                totalEmployerMatch: totalEmployerMatch,
+                                totalSavings: totalContributions + totalEmployerMatch
+                            };
+                        }
+                    }
+
+                    if (!incomeData) {
+                        const savedIncomeData = StateManager.load('income');
+                        if (savedIncomeData && savedIncomeData.incomeSources) {
+                            const annualTotal = savedIncomeData.incomeSources.reduce((sum, income) => {
+                                const annual = income.frequency === 'monthly' ? income.amount * 12 : income.amount;
+                                return sum + annual;
+                            }, 0);
+                            incomeData = { annualTotal: annualTotal };
+                        }
+                    }
+
+                    if (!budgetData) {
+                        const savedBudgetData = StateManager.load('budget');
+                        if (savedBudgetData) {
+                            budgetData = { annualTotal: savedBudgetData.annualTotal || 0 };
+                        }
+                    }
+
+                    if (portfolioData && incomeData && budgetData) {
+                        const contributions = portfolioData.totalContributions || 0;
+                        const leftoverCash = incomeData.annualTotal - budgetData.annualTotal;
+                        inputs.annualSavings = contributions + Math.max(0, leftoverCash);
+                        console.log('✓ Auto-populated Annual Savings:', inputs.annualSavings);
+                    }
+                } catch (e) {
+                    console.log('Could not calculate annual savings from modules');
+                }
+            }
+        },
+
         render() {
             const container = document.getElementById('modalBody');
+
+            // Determine styling for each field
+            const fiNumberStyle = inputs.fiNumberCustom ? 'background: #fffde7;' : '';
+            const fiNumberLabel = inputs.fiNumberCustom ? ' <span style="color: #f57c00; font-size: 0.85em;">(custom)</span>' : '';
+            const fiNumberReset = inputs.fiNumberCustom ?
+                `<a href="#" onclick="window.modules['years-to-fi'].resetField('fiNumber'); return false;"
+                    style="color: #666; font-size: 0.85em; text-decoration: none; margin-left: 10px;">↺ Reset to calculated</a>` : '';
+
+            const portfolioStyle = inputs.currentPortfolioCustom ? 'background: #fffde7;' : '';
+            const portfolioLabel = inputs.currentPortfolioCustom ? ' <span style="color: #f57c00; font-size: 0.85em;">(custom)</span>' : '';
+            const portfolioReset = inputs.currentPortfolioCustom ?
+                `<a href="#" onclick="window.modules['years-to-fi'].resetField('currentPortfolio'); return false;"
+                    style="color: #666; font-size: 0.85em; text-decoration: none; margin-left: 10px;">↺ Reset to calculated</a>` : '';
+
+            const savingsStyle = inputs.annualSavingsCustom ? 'background: #fffde7;' : '';
+            const savingsLabel = inputs.annualSavingsCustom ? ' <span style="color: #f57c00; font-size: 0.85em;">(custom)</span>' : '';
+            const savingsReset = inputs.annualSavingsCustom ?
+                `<a href="#" onclick="window.modules['years-to-fi'].resetField('annualSavings'); return false;"
+                    style="color: #666; font-size: 0.85em; text-decoration: none; margin-left: 10px;">↺ Reset to calculated</a>` : '';
 
             container.innerHTML = `
                 <div class="years-to-fi-module">
                     <div class="section">
                         <h3>Years to Financial Independence</h3>
-                        <p style="color: #666; margin-bottom: 20px;">
+                        <p style="color: #666; margin-bottom: 15px;">
                             Calculate how long until you reach your FI number based on current savings and contributions.
                         </p>
 
+                        ${this.getDataStatusHtml()}
+
+                        <div style="margin-bottom: 20px;">
+                            <button type="button" onclick="window.modules['years-to-fi'].refreshData()"
+                                    style="background: #2196F3; color: white; border: none; padding: 8px 16px;
+                                           border-radius: 4px; cursor: pointer;">
+                                ↻ Refresh Data from Other Modules
+                            </button>
+                            <small style="color: #666; display: block; margin-top: 5px;">
+                                Click this after updating Budget, Portfolio, or Income data
+                            </small>
+                        </div>
+
                         <form id="yearsToFiForm" style="margin-bottom: 20px;">
-                            <div style="margin-bottom: 10px;">
-                                <label style="display: block; margin-bottom: 5px;">FI Number (Target):</label>
-                                <div style="display: flex; gap: 10px;">
-                                    <input type="number" id="fiNumber" required step="0.01" min="0" value="${inputs.fiNumber}"
-                                           style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                                    <button type="button" onclick="window.modules['years-to-fi'].pullFromBudget()"
-                                            style="background: #666; color: white; border: none; padding: 8px 16px;
-                                                   border-radius: 4px; cursor: pointer; white-space: nowrap;">
-                                        Pull from Budget
-                                    </button>
-                                </div>
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; margin-bottom: 5px;">
+                                    FI Number (Target):${fiNumberLabel}
+                                </label>
+                                <input type="number" id="fiNumber" required step="0.01" min="0" value="${inputs.fiNumber}"
+                                       style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; ${fiNumberStyle}">
+                                ${fiNumberReset}
+                                ${!inputs.fiNumberCustom ? '<small style="color: #666; display: block; margin-top: 3px;">Auto-populated from Budget module (25× annual expenses)</small>' : ''}
                             </div>
 
-                            <div style="margin-bottom: 10px;">
-                                <label style="display: block; margin-bottom: 5px;">Current Portfolio Value:</label>
-                                <div style="display: flex; gap: 10px;">
-                                    <input type="number" id="currentPortfolio" required step="0.01" min="0" value="${inputs.currentPortfolio}"
-                                           style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                                    <button type="button" onclick="window.modules['years-to-fi'].pullFromPortfolio()"
-                                            style="background: #666; color: white; border: none; padding: 8px 16px;
-                                                   border-radius: 4px; cursor: pointer; white-space: nowrap;">
-                                        Pull from Portfolio
-                                    </button>
-                                </div>
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; margin-bottom: 5px;">
+                                    Current Portfolio Value:${portfolioLabel}
+                                </label>
+                                <input type="number" id="currentPortfolio" required step="0.01" min="0" value="${inputs.currentPortfolio}"
+                                       style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; ${portfolioStyle}">
+                                ${portfolioReset}
+                                ${!inputs.currentPortfolioCustom ? '<small style="color: #666; display: block; margin-top: 3px;">Auto-populated from Portfolio module</small>' : ''}
                             </div>
 
-                            <div style="margin-bottom: 10px;">
-                                <label style="display: block; margin-bottom: 5px;">Annual Savings (Employee Contributions + Leftover Cash):</label>
-                                <div style="display: flex; gap: 10px;">
-                                    <input type="number" id="annualSavings" required step="0.01" min="0" value="${inputs.annualSavings}"
-                                           style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                                    <button type="button" onclick="window.modules['years-to-fi'].pullSavingsRate()"
-                                            style="background: #666; color: white; border: none; padding: 8px 16px;
-                                                   border-radius: 4px; cursor: pointer; white-space: nowrap;">
-                                        Auto-Calculate
-                                    </button>
-                                </div>
-                                <small style="color: #666; display: block; margin-top: 3px;">
-                                    This is how much you save per year (not including employer match)
-                                </small>
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; margin-bottom: 5px;">
+                                    Annual Savings (Contributions + Leftover Cash):${savingsLabel}
+                                </label>
+                                <input type="number" id="annualSavings" required step="0.01" min="0" value="${inputs.annualSavings}"
+                                       style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; ${savingsStyle}">
+                                ${savingsReset}
+                                ${!inputs.annualSavingsCustom ? '<small style="color: #666; display: block; margin-top: 3px;">Auto-calculated from Portfolio, Income, and Budget modules</small>' : ''}
                             </div>
 
                             <div style="margin-bottom: 15px;">
@@ -130,115 +329,134 @@
                 e.preventDefault();
                 this.calculate();
             });
+
+            // Track changes to mark fields as custom
+            document.getElementById('fiNumber').addEventListener('input', () => {
+                inputs.fiNumberCustom = true;
+                this.save();
+                this.render();
+            });
+
+            document.getElementById('currentPortfolio').addEventListener('input', () => {
+                inputs.currentPortfolioCustom = true;
+                this.save();
+                this.render();
+            });
+
+            document.getElementById('annualSavings').addEventListener('input', () => {
+                inputs.annualSavingsCustom = true;
+                this.save();
+                this.render();
+            });
+
+            document.getElementById('expectedReturn').addEventListener('input', () => {
+                inputs.expectedReturn = parseFloat(document.getElementById('expectedReturn').value);
+                this.save();
+            });
         },
 
-        pullFromBudget() {
-            try {
-                if (window.modules['budget'] && window.modules['budget'].getData) {
-                    const budgetData = window.modules['budget'].getData();
-                    if (budgetData.fiNumber > 0) {
-                        document.getElementById('fiNumber').value = budgetData.fiNumber.toFixed(2);
-                        alert(`Pulled FI Number: $${budgetData.fiNumber.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
-                    } else {
-                        alert('No FI number found in Budget module. Add expenses first.');
-                    }
-                } else {
-                    alert('Budget module not available. Please add expenses in the Budget module first.');
-                }
-            } catch (e) {
-                alert('Error pulling from Budget module: ' + e.message);
+        refreshData() {
+            console.log('=== Refreshing Data ===');
+
+            // Debug: Check what's available
+            if (window.modules?.budget) {
+                const budgetData = window.modules.budget.getData();
+                console.log('Budget module data:', budgetData);
+            } else {
+                console.log('Budget module: NOT LOADED');
             }
+
+            if (window.modules?.portfolio) {
+                const portfolioData = window.modules.portfolio.getData();
+                console.log('Portfolio module data:', portfolioData);
+            } else {
+                console.log('Portfolio module: NOT LOADED');
+            }
+
+            if (window.modules?.income) {
+                const incomeData = window.modules.income.getData();
+                console.log('Income module data:', incomeData);
+            } else {
+                console.log('Income module: NOT LOADED');
+            }
+
+            // Clear all custom flags to force re-pull from source modules
+            inputs.fiNumberCustom = false;
+            inputs.currentPortfolioCustom = false;
+            inputs.annualSavingsCustom = false;
+
+            // Re-populate from source modules
+            this.autoPopulateFields();
+            this.save();
+            this.render();
         },
 
-        pullFromPortfolio() {
-            try {
-                if (window.modules['portfolio'] && window.modules['portfolio'].getData) {
-                    const portfolioData = window.modules['portfolio'].getData();
-                    if (portfolioData.totalValue > 0) {
-                        document.getElementById('currentPortfolio').value = portfolioData.totalValue.toFixed(2);
-                        alert(`Pulled Portfolio Value: $${portfolioData.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
-                    } else {
-                        alert('No portfolio value found. Add accounts in the Portfolio module first.');
-                    }
-                } else {
-                    alert('Portfolio module not available. Please add accounts first.');
-                }
-            } catch (e) {
-                alert('Error pulling from Portfolio module: ' + e.message);
+        resetField(fieldName) {
+            // Clear custom flag
+            if (fieldName === 'fiNumber') {
+                inputs.fiNumberCustom = false;
+            } else if (fieldName === 'currentPortfolio') {
+                inputs.currentPortfolioCustom = false;
+            } else if (fieldName === 'annualSavings') {
+                inputs.annualSavingsCustom = false;
             }
-        },
 
-        pullSavingsRate() {
-            try {
-                // Get data from all three modules
-                const portfolioData = window.modules['portfolio']?.getData();
-                const incomeData = window.modules['income']?.getData();
-                const budgetData = window.modules['budget']?.getData();
-
-                if (!portfolioData || !incomeData || !budgetData) {
-                    alert('Need Portfolio, Income, and Budget data to auto-calculate savings. Please fill those modules first.');
-                    return;
-                }
-
-                // Calculate annual savings = contributions + leftover cash
-                const contributions = portfolioData.totalContributions || 0;
-                const leftoverCash = incomeData.annualTotal - budgetData.annualTotal;
-                const totalSavings = contributions + Math.max(0, leftoverCash);
-
-                if (totalSavings > 0) {
-                    document.getElementById('annualSavings').value = totalSavings.toFixed(2);
-                    alert(`Auto-calculated Annual Savings: $${totalSavings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\n` +
-                          `Breakdown:\n` +
-                          `- Contributions: $${contributions.toLocaleString()}\n` +
-                          `- Leftover Cash: $${Math.max(0, leftoverCash).toLocaleString()}`);
-                } else {
-                    alert('No savings detected. Your expenses exceed your income.');
-                }
-            } catch (e) {
-                alert('Error calculating savings: ' + e.message);
-            }
+            // Re-populate from source
+            this.autoPopulateFields();
+            this.save();
+            this.render();
         },
 
         calculate() {
-            // Get inputs
-            const fiNumber = parseFloat(document.getElementById('fiNumber').value);
-            const currentPortfolio = parseFloat(document.getElementById('currentPortfolio').value);
-            const annualSavings = parseFloat(document.getElementById('annualSavings').value);
-            const expectedReturn = parseFloat(document.getElementById('expectedReturn').value) / 100;
+            // Get current values from form
+            inputs.fiNumber = parseFloat(document.getElementById('fiNumber').value);
+            inputs.currentPortfolio = parseFloat(document.getElementById('currentPortfolio').value);
+            inputs.annualSavings = parseFloat(document.getElementById('annualSavings').value);
+            inputs.expectedReturn = parseFloat(document.getElementById('expectedReturn').value) / 100;
 
             // Validate
-            if (fiNumber <= 0 || currentPortfolio < 0 || annualSavings < 0) {
-                alert('Please enter valid positive numbers.');
+            if (inputs.fiNumber <= 0 || inputs.currentPortfolio < 0 || inputs.annualSavings < 0) {
                 return;
             }
 
-            if (currentPortfolio >= fiNumber) {
-                alert('Congratulations! You\'ve already reached FI! 🎉');
+            if (inputs.currentPortfolio >= inputs.fiNumber) {
+                // Already at FI
+                lastResults = {
+                    alreadyFI: true,
+                    currentProgress: 100
+                };
+                this.save();
+                this.displayResults(lastResults);
                 return;
             }
 
-            if (annualSavings === 0) {
-                alert('You need to save money to reach FI. Annual savings cannot be zero.');
+            if (inputs.annualSavings === 0) {
                 return;
             }
-
-            // Save inputs
-            inputs = { fiNumber, currentPortfolio, annualSavings, expectedReturn };
 
             // Simple calculation (with compound growth)
-            const yearsSimple = this.calculateYearsToFI(currentPortfolio, fiNumber, annualSavings, expectedReturn);
+            const yearsSimple = this.calculateYearsToFI(
+                inputs.currentPortfolio,
+                inputs.fiNumber,
+                inputs.annualSavings,
+                inputs.expectedReturn
+            );
 
             // Historical simulation
             let historicalResults = null;
             if (window.SimulationEngine && window.SimulationEngine.isDataLoaded()) {
-                historicalResults = this.runHistoricalSimulation(currentPortfolio, fiNumber, annualSavings);
+                historicalResults = this.runHistoricalSimulation(
+                    inputs.currentPortfolio,
+                    inputs.fiNumber,
+                    inputs.annualSavings
+                );
             }
 
             // Store results
             lastResults = {
                 yearsSimple,
                 historicalResults,
-                currentProgress: (currentPortfolio / fiNumber * 100).toFixed(1)
+                currentProgress: (inputs.currentPortfolio / inputs.fiNumber * 100).toFixed(1)
             };
 
             this.save();
@@ -256,12 +474,8 @@
             }
 
             // Using logarithmic formula to solve for n
-            const remaining = targetValue - currentValue;
-            const numerator = Math.log((targetValue * returnRate / annualSavings) + 1);
-            const denominator = Math.log(1 + returnRate);
-
-            // Adjust for current portfolio
             const adjustedNumerator = Math.log((targetValue * returnRate + annualSavings) / (currentValue * returnRate + annualSavings));
+            const denominator = Math.log(1 + returnRate);
             const years = adjustedNumerator / denominator;
 
             return Math.max(0, years);
@@ -341,6 +555,20 @@
             const resultsDisplay = document.getElementById('resultsDisplay');
 
             resultsSection.style.display = 'block';
+
+            // Check if already at FI
+            if (results.alreadyFI) {
+                resultsDisplay.innerHTML = `
+                    <div style="background: #e8f5e9; padding: 20px; border-radius: 4px; text-align: center;">
+                        <h3 style="color: #2e7d32; margin: 0 0 10px 0;">🎉 Congratulations!</h3>
+                        <p style="font-size: 1.2em; margin: 0;">
+                            You've already reached Financial Independence!
+                        </p>
+                    </div>
+                `;
+                resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                return;
+            }
 
             const yearsSimple = results.yearsSimple;
             const currentProgress = results.currentProgress;
@@ -430,13 +658,16 @@
             if (confirm('Are you sure you want to clear all Years to FI data? This cannot be undone.')) {
                 inputs = {
                     fiNumber: 0,
+                    fiNumberCustom: false,
                     currentPortfolio: 0,
+                    currentPortfolioCustom: false,
                     annualSavings: 0,
+                    annualSavingsCustom: false,
                     expectedReturn: 7.0
                 };
                 lastResults = null;
                 this.save();
-                this.render();
+                this.init();
             }
         },
 

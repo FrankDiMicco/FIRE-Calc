@@ -324,6 +324,22 @@
             if (errors.length > 0) {
                 throw new Error('Validation failed:\n' + errors.join('\n'));
             }
+        },
+
+        /**
+         * Check if historical data is loaded
+         * @returns {boolean} True if data is loaded
+         */
+        isDataLoaded() {
+            return historicalData !== null;
+        },
+
+        /**
+         * Get the raw historical data
+         * @returns {Array|null} Historical data array or null if not loaded
+         */
+        getHistoricalData() {
+            return historicalData;
         }
     };
 
