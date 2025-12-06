@@ -25,7 +25,6 @@
 
             // Load saved data
             const savedData = StateManager.load('years-to-fi');
-            const previousInputs = savedData?.inputs ? { ...savedData.inputs } : null;
 
             if (savedData && savedData.inputs) {
                 inputs = { ...inputs, ...savedData.inputs };
@@ -40,19 +39,7 @@
 
             // Auto-populate non-custom fields from source modules
             this.autoPopulateFields();
-
-            // Check if inputs changed after auto-populate - if so, clear stale results
-            if (lastResults && previousInputs) {
-                const inputsChanged =
-                    (inputs.fiNumber !== previousInputs.fiNumber) ||
-                    (inputs.currentPortfolio !== previousInputs.currentPortfolio) ||
-                    (inputs.annualSavings !== previousInputs.annualSavings);
-
-                if (inputsChanged) {
-                    console.log('⚠ Inputs changed after auto-populate, clearing stale results');
-                    lastResults = null;
-                }
-            }
+            lastResults = null;  // Force fresh calculation after auto-populate
 
             // Render the module UI
             this.render();
