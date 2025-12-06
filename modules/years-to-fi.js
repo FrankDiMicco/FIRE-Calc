@@ -53,18 +53,9 @@
             const savedPortfolio = StateManager.load('portfolio');
             const savedIncome = StateManager.load('income');
 
-            console.log('Checking data status:');
-            console.log('  savedBudget:', savedBudget);
-            console.log('  savedPortfolio:', savedPortfolio);
-            console.log('  savedIncome:', savedIncome);
-
-            const budgetOk = savedBudget && savedBudget.annualTotal > 0;
+            const budgetOk = savedBudget && savedBudget.expenses && savedBudget.expenses.length > 0;
             const portfolioOk = savedPortfolio && savedPortfolio.accounts && savedPortfolio.accounts.length > 0;
             const incomeOk = savedIncome && savedIncome.incomeSources && savedIncome.incomeSources.length > 0;
-
-            console.log('  budgetOk:', budgetOk, '(annualTotal:', savedBudget?.annualTotal, ')');
-            console.log('  portfolioOk:', portfolioOk, '(accounts:', savedPortfolio?.accounts?.length, ')');
-            console.log('  incomeOk:', incomeOk, '(sources:', savedIncome?.incomeSources?.length, ')');
 
             const allOk = budgetOk && portfolioOk && incomeOk;
 
@@ -107,9 +98,12 @@
                     // If module not loaded, read directly from localStorage
                     if (!budgetData) {
                         const savedBudgetData = StateManager.load('budget');
-                        if (savedBudgetData) {
-                            // Calculate FI number same way budget module does
-                            const annualTotal = savedBudgetData.annualTotal || 0;
+                        if (savedBudgetData && savedBudgetData.expenses) {
+                            // Calculate annual total from expenses array
+                            const annualTotal = savedBudgetData.expenses.reduce((sum, expense) => {
+                                const annual = expense.frequency === 'monthly' ? expense.amount * 12 : expense.amount;
+                                return sum + annual;
+                            }, 0);
                             const withdrawalRate = savedBudgetData.withdrawalRate || 4;
                             budgetData = {
                                 fiNumber: (annualTotal / withdrawalRate) * 100,
@@ -195,8 +189,13 @@
 
                     if (!budgetData) {
                         const savedBudgetData = StateManager.load('budget');
-                        if (savedBudgetData) {
-                            budgetData = { annualTotal: savedBudgetData.annualTotal || 0 };
+                        if (savedBudgetData && savedBudgetData.expenses) {
+                            // Calculate annual total from expenses array
+                            const annualTotal = savedBudgetData.expenses.reduce((sum, expense) => {
+                                const annual = expense.frequency === 'monthly' ? expense.amount * 12 : expense.amount;
+                                return sum + annual;
+                            }, 0);
+                            budgetData = { annualTotal: annualTotal };
                         }
                     }
 
