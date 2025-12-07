@@ -1,5 +1,8 @@
 // Historical Backtesting Simulation Engine
 // Pure computation functions - no UI, no state
+// 
+// IMPORTANT: All final balances are returned in REAL (inflation-adjusted) dollars
+// This matches FICalc and provides meaningful purchasing power comparisons
 (function() {
 
     // Cached historical data
@@ -56,6 +59,8 @@
          * @param {number} params.duration - Years in retirement
          * @param {Object} params.allocation - Asset allocation {stocks, bonds, cash}
          * @returns {Object} Simulation results with success rate and statistics
+         * 
+         * NOTE: All final balances in results are in REAL (inflation-adjusted) dollars
          */
         runWithdrawalSimulation(params) {
             // Validate params
@@ -123,13 +128,14 @@
          * @param {Object} allocation - Asset allocation percentages
          * @param {Array} yearsData - Historical data for this period
          * @param {number} startIndex - Index in historical data array
-         * @returns {Object} Scenario result
+         * @returns {Object} Scenario result with REAL (inflation-adjusted) final balance
          */
         simulateSingleWithdrawal(balance, withdrawal, allocation, yearsData, startIndex) {
             const yearlyBalances = [balance];
             let currentBalance = balance;
             let currentWithdrawal = withdrawal;
             let totalWithdrawn = 0;
+            let cumulativeInflation = 1.0; // Track cumulative inflation factor
 
             for (let year = 0; year < yearsData.length; year++) {
                 // 1. Withdraw at start of year
@@ -143,20 +149,25 @@
                         startYearActual: historicalData[startIndex].year,
                         success: false,
                         failureYear: year + 1,
-                        finalBalance: 0,
+                        finalBalance: 0,           // Real dollars (0 is 0)
+                        finalBalanceNominal: 0,    // Also provide nominal for reference
                         yearlyBalances: yearlyBalances,
-                        totalWithdrawn: totalWithdrawn
+                        totalWithdrawn: totalWithdrawn,
+                        cumulativeInflation: cumulativeInflation
                     };
                 }
 
-                // 3. Apply portfolio returns
+                // 3. Apply portfolio returns (NOMINAL returns from historical data)
                 const portfolioReturn = this.calculatePortfolioReturn(
                     yearsData[year],
                     allocation
                 );
                 currentBalance *= (1 + portfolioReturn);
 
-                // 4. Inflate withdrawal for next year
+                // 4. Track cumulative inflation for this period
+                cumulativeInflation *= (1 + yearsData[year].inflation);
+
+                // 5. Inflate withdrawal for next year
                 if (year < yearsData.length - 1) {
                     currentWithdrawal *= (1 + yearsData[year].inflation);
                 }
@@ -164,15 +175,20 @@
                 yearlyBalances.push(currentBalance);
             }
 
+            // Convert final balance to REAL (inflation-adjusted) dollars
+            const realFinalBalance = currentBalance / cumulativeInflation;
+
             // Success - portfolio lasted entire duration
             return {
                 startIndex: startIndex,
                 startYearActual: historicalData[startIndex].year,
                 success: true,
                 failureYear: null,
-                finalBalance: currentBalance,
+                finalBalance: realFinalBalance,      // REAL dollars (inflation-adjusted) - PRIMARY VALUE
+                finalBalanceNominal: currentBalance, // Nominal dollars for reference
                 yearlyBalances: yearlyBalances,
-                totalWithdrawn: totalWithdrawn
+                totalWithdrawn: totalWithdrawn,
+                cumulativeInflation: cumulativeInflation
             };
         },
 
@@ -192,6 +208,7 @@
 
         /**
          * Calculate aggregate statistics across all scenarios
+         * NOTE: All balance statistics are in REAL (inflation-adjusted) dollars
          * @param {Array} scenarios - All scenario results
          * @returns {Object} Statistics object
          */
@@ -215,9 +232,9 @@
                 };
             }
 
-            // Final balances (successful scenarios only)
+            // Final balances in REAL dollars (successful scenarios only)
             const finalBalances = successfulScenarios
-                .map(s => s.finalBalance)
+                .map(s => s.finalBalance)  // Already in REAL dollars
                 .sort((a, b) => a - b);
 
             // Calculate percentiles
@@ -229,12 +246,12 @@
                 percentile95: this.calculatePercentile(finalBalances, 95)
             };
 
-            // Best case (highest final balance)
+            // Best case (highest REAL final balance)
             const bestCase = successfulScenarios.reduce((best, s) =>
                 s.finalBalance > best.finalBalance ? s : best
             , successfulScenarios[0]);
 
-            // Worst case (earliest failure or lowest balance)
+            // Worst case (earliest failure or lowest REAL balance)
             let worstCase;
             if (failedScenarios.length > 0) {
                 worstCase = failedScenarios.reduce((worst, s) =>

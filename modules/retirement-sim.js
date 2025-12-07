@@ -263,9 +263,12 @@
                         </div>
                     </div>
 
-                    <!-- Percentiles -->
+                    <!-- Percentiles - Now showing inflation-adjusted values -->
                     <div style="margin: 20px 0; padding: 20px; background: white; border-radius: 4px;">
                         <h4 style="margin-top: 0;">Final Balance Distribution (Successful Scenarios)</h4>
+                        <p style="color: #666; font-size: 0.85em; margin-bottom: 15px;">
+                            All values in today's dollars (inflation-adjusted) for meaningful comparison
+                        </p>
                         ${successCount > 0 ? `
                             <table style="width: 100%; border-collapse: collapse;">
                                 <tr style="border-bottom: 1px solid #ddd;">
@@ -305,6 +308,9 @@
                     <!-- Best/Worst Cases -->
                     <div style="margin: 20px 0;">
                         <h4>Best & Worst Case Scenarios</h4>
+                        <p style="color: #666; font-size: 0.85em; margin-bottom: 10px;">
+                            Final balances shown in today's dollars (inflation-adjusted)
+                        </p>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
                             ${results.statistics.bestCase ? `
                                 <div style="background: #d4edda; padding: 15px; border-radius: 4px; border-left: 4px solid #5cb85c;">
@@ -313,6 +319,11 @@
                                     <div style="font-size: 1.2em; font-weight: bold; margin-top: 10px;">
                                         Final: $${results.statistics.bestCase.finalBalance.toLocaleString('en-US', {maximumFractionDigits: 0})}
                                     </div>
+                                    ${results.statistics.bestCase.finalBalanceNominal ? `
+                                        <div style="font-size: 0.8em; color: #666; margin-top: 5px;">
+                                            (Nominal: $${results.statistics.bestCase.finalBalanceNominal.toLocaleString('en-US', {maximumFractionDigits: 0})})
+                                        </div>
+                                    ` : ''}
                                 </div>
                             ` : ''}
                             ${results.statistics.worstCase ? `
@@ -336,6 +347,17 @@
                         <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
                             The classic "4% rule" suggests a 4% initial withdrawal rate for 30-year retirements.
                             Your rate: ${((results.inputParams.annualWithdrawal / results.inputParams.startingBalance) * 100).toFixed(2)}%
+                        </div>
+                    </div>
+
+                    <!-- Methodology Note -->
+                    <div style="margin: 20px 0; padding: 15px; background: #e7f3ff; border-radius: 4px; border-left: 4px solid #0275d8;">
+                        <strong>About These Results</strong>
+                        <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
+                            This simulation uses historical market data from 1871-2024. All ending balances are shown
+                            in <strong>today's dollars</strong> (inflation-adjusted) so you can compare purchasing power
+                            directly to your starting balance. This methodology matches FICalc and other industry-standard
+                            retirement calculators.
                         </div>
                     </div>
                 </div>
