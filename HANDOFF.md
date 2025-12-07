@@ -1,11 +1,11 @@
 FIRE PLANNER - DEVELOPMENT HANDOFF
 ===================================
-Last Updated: December 4, 2025
+Last Updated: December 7, 2025
 
 QUICK START FOR NEW AI ASSISTANT
 ---------------------------------
 This is a modular FIRE (Financial Independence, Retire Early) planning web application.
-Five modules are complete and working. Five more need to be built.
+Seven modules are complete and working. Four more need to be built.
 
 **To continue development:**
 1. Read this entire file first
@@ -17,10 +17,11 @@ Five modules are complete and working. Five more need to be built.
 **Current Status:**
 - Budget Builder: ✅ COMPLETE & TESTED
 - Portfolio: ✅ COMPLETE & TESTED
+- Income: ✅ COMPLETE & TESTED
 - Tax Calculator: ✅ COMPLETE & TESTED
 - ACA Subsidy Calculator: ✅ COMPLETE & TESTED
 - Retirement Simulator: ✅ COMPLETE & TESTED
-- Years to FI: 🔲 Not started
+- Years to FI: ✅ COMPLETE & TESTED
 - Bucket Strategy: 🔲 Not started
 - Roth Conversions: 🔲 Not started
 - Withdrawal Strategy: 🔲 Not started
@@ -45,10 +46,11 @@ FILE STRUCTURE
   /modules/
     budget.js                   ← ✅ COMPLETE
     portfolio.js                ← ✅ COMPLETE (with 13 account types)
+    income.js                   ← ✅ COMPLETE
     tax.js                      ← ✅ COMPLETE
     aca.js                      ← ✅ COMPLETE
     retirement-sim.js           ← ✅ COMPLETE (uses simulation engine)
-    years-to-fi.js              ← 🔲 TODO
+    years-to-fi.js              ← ✅ COMPLETE (uses simulation engine)
     bucket.js                   ← 🔲 TODO
     roth.js                     ← 🔲 TODO
     withdrawal.js               ← 🔲 TODO
@@ -57,7 +59,7 @@ FILE STRUCTURE
 HOW THE APP WORKS
 -----------------
 1. User opens index.html in browser (via local web server)
-2. Sees card-based dashboard with 10 module cards
+2. Sees card-based dashboard with 11 module cards
 3. Clicks a card → opens modal with that module
 4. Module JavaScript loads dynamically from /modules/
 5. User enters data → auto-saves to localStorage
@@ -199,57 +201,113 @@ getData() returns {
 - Advanced options collapsed by default, expand with ▶/▼ toggle
 - Timing shown as: "starts in 2 years, lasts 4 years"
 
-### 2. ACA SUBSIDY CALCULATOR (modules/aca.js)
-**Purpose:** Calculate ACA marketplace subsidies using real CMS API data
+### 2. PORTFOLIO MODULE (modules/portfolio.js)
+**Purpose:** Track current savings, asset allocation, and account types
 
 **Features:**
-- CMS Marketplace API integration (user provides key)
-- ZIP code lookup → gets county/state automatically
-- Household member management (age, tobacco use)
-- MAGI input for subsidy calculation
-- Shows plan ranges by metal level (Catastrophic, Bronze, Silver, Gold, Platinum)
-- Before and after subsidy pricing
-- Calculates actual APTC (Advanced Premium Tax Credit)
-- Results persist on reload
+- Add/edit/delete investment accounts
+- 13 account types: 529, 403b, Brokerage/Taxable, Crypto, ESOP, Gold, HSA, Other, Roth 401k, Roth IRA, Savings/Checking, Traditional 401k, Traditional IRA
+- Asset allocation (stocks/bonds/cash %) for investment accounts
+- Annual contribution tracking per account
+- Employer match tracking for 401k/403b
+- Contribution duration (how many years contributing)
+- Special handling:
+  - Savings/Checking: Always 100% cash (allocation hidden)
+  - Crypto, Gold, ESOP: Separate asset classes (allocation hidden)
+- Total portfolio value calculation
+- Weighted average allocation across all accounts
+- Savings rate calculation using formula: (contributions + leftover cash) / (take-home + contributions)
+- Progress to FI (integrates with Budget module's FI number)
+- Visual progress bar showing % to FI
+- Sorted by balance (largest first)
 - Export/Clear data
-
-**API Integration:**
-- Endpoint 1: /api/v1/counties/by/zip/{zip} - gets location
-- Endpoint 2: /api/v1/households/eligibility/estimates - gets APTC
-- Endpoint 3: /api/v1/plans/search - gets plan pricing
-- Fetches 10 plans per metal level (50 total)
-- API key stored in localStorage (not exported for security)
 
 **Data Structure:**
 ```javascript
-householdData: {
-  zipcode: string,
-  state: string,
-  county: string (FIPS code),
-  year: number,
-  income: number (MAGI),
-  members: [
-    { age: number, uses_tobacco: boolean, dob: string }
-  ]
-}
-lastResults: {
-  plans: array,
-  aptc_amount: number
+accounts: [
+  {
+    id: timestamp,
+    name: string,
+    type: string,  // one of 13 account types
+    balance: number,
+    contribution: number,  // annual contribution
+    contributionYears: number | null,  // how long contributing
+    employerMatch: number,  // annual employer match
+    stocks_pct: number,  // 0-100
+    bonds_pct: number,   // 0-100
+    cash_pct: number     // 0-100
+  }
+]
+```
+
+**Public API:**
+```javascript
+getData() returns {
+  accounts: array,
+  totalValue: number,
+  totalContributions: number,
+  totalEmployerMatch: number,
+  totalSavings: number,
+  allocation: {
+    stocks: number,    // Weighted average %
+    bonds: number,     // Weighted average %
+    cash: number,      // Weighted average %
+    esop: number,      // % of total portfolio
+    crypto: number,    // % of total portfolio
+    gold: number       // % of total portfolio
+  }
 }
 ```
 
-**Critical Details:**
-- Uses 2024 as default year (2025 data incomplete)
-- APTC is per household, not per person (use first estimate only)
-- Plans grouped by metal level, shows min/max premiums
-- Color-coded by metal (Bronze=#cd7f32, Silver=#c0c0c0, etc.)
-- Calculates average Silver cost for Budget integration
+**Key Implementation Details:**
+- Allocation validation: must total 100% for investment accounts
+- Real-time allocation total display
+- Smart display: only shows non-zero asset classes
+- Integration: pulls FI number from Budget to show progress
+- Savings rate uses take-home pay formula (contributions added back to denominator)
 
-**Known Issues:**
-- API returns max 10 plans per metal level despite requesting 20
-- aptc_eligible_premium often returns 0 (use eligibility endpoint instead)
+### 3. INCOME MODULE (modules/income.js)
+**Purpose:** Track income sources for savings rate and tax calculations
 
-### 3. TAX CALCULATOR (modules/tax.js)
+**Features:**
+- Add/edit/delete income sources
+- 9 income types: Wages/Salary, Social Security, Pension, Rental, Dividends, Interest, Business, Part-time, Other
+- Tax treatment: Ordinary, Qualified (LTCG rates), Tax-Free, Social Security
+- Inflation adjustment flag for income that grows with CPI
+- Advanced timing (startsIn, lastsFor) for future/temporary income
+- Summary by type and tax treatment
+- Sorted by annual amount (largest first)
+- Export/Clear data
+
+**Data Structure:**
+```javascript
+incomeSources: [
+  {
+    id: timestamp,
+    name: string,
+    type: string,  // wages, social-security, pension, etc.
+    amount: number,
+    frequency: 'monthly' | 'annual',
+    taxTreatment: 'ordinary' | 'qualified' | 'tax-free' | 'social-security',
+    inflationAdjusted: boolean,
+    startsIn: number,
+    lastsFor: number | null
+  }
+]
+```
+
+**Public API:**
+```javascript
+getData() returns {
+  incomeSources: array,
+  annualTotal: number,
+  monthlyAverage: number,
+  byType: object,  // totals by income type
+  byTaxTreatment: object  // totals by tax treatment
+}
+```
+
+### 4. TAX CALCULATOR (modules/tax.js)
 **Purpose:** Estimate federal income tax for FIRE planning
 
 **Features:**
@@ -301,61 +359,57 @@ getData() returns {
 }
 ```
 
-### 4. PORTFOLIO MODULE (modules/portfolio.js)
-**Purpose:** Track current savings, asset allocation, and account types
+### 5. ACA SUBSIDY CALCULATOR (modules/aca.js)
+**Purpose:** Calculate ACA marketplace subsidies using real CMS API data
 
 **Features:**
-- Add/edit/delete investment accounts
-- 13 account types: 529, 403b, Brokerage/Taxable, Crypto, ESOP, Gold, HSA, Other, Roth 401k, Roth IRA, Savings/Checking, Traditional 401k, Traditional IRA
-- Asset allocation (stocks/bonds/cash %) for investment accounts
-- Special handling:
-  - Savings/Checking: Always 100% cash (allocation hidden)
-  - Crypto, Gold, ESOP: Separate asset classes (allocation hidden)
-- Total portfolio value calculation
-- Weighted average allocation across all accounts
-- Progress to FI (integrates with Budget module's FI number)
-- Visual progress bar showing % to FI
-- Sorted by balance (largest first)
+- CMS Marketplace API integration (user provides key)
+- ZIP code lookup → gets county/state automatically
+- Household member management (age, tobacco use)
+- MAGI input for subsidy calculation
+- Shows plan ranges by metal level (Catastrophic, Bronze, Silver, Gold, Platinum)
+- Before and after subsidy pricing
+- Calculates actual APTC (Advanced Premium Tax Credit)
+- Results persist on reload
 - Export/Clear data
+
+**API Integration:**
+- Endpoint 1: /api/v1/counties/by/zip/{zip} - gets location
+- Endpoint 2: /api/v1/households/eligibility/estimates - gets APTC
+- Endpoint 3: /api/v1/plans/search - gets plan pricing
+- Fetches 10 plans per metal level (50 total)
+- API key stored in localStorage (not exported for security)
 
 **Data Structure:**
 ```javascript
-accounts: [
-  {
-    id: timestamp,
-    name: string,
-    type: '529' | '403b' | 'Brokerage/Taxable' | 'Crypto' | 'ESOP' | 'Gold' | 'HSA' | 'Other' | 'Roth 401k' | 'Roth IRA' | 'Savings/Checking' | 'Traditional 401k' | 'Traditional IRA',
-    balance: number,
-    stocks_pct: number,  // 0-100
-    bonds_pct: number,   // 0-100
-    cash_pct: number     // 0-100
-  }
-]
-```
-
-**Public API:**
-```javascript
-getData() returns {
-  accounts: array,
-  totalValue: number,
-  allocation: {
-    stocks: number,    // Weighted average %
-    bonds: number,     // Weighted average %
-    cash: number,      // Weighted average %
-    esop: number,      // % of total portfolio
-    crypto: number,    // % of total portfolio
-    gold: number       // % of total portfolio
-  }
+householdData: {
+  zipcode: string,
+  state: string,
+  county: string (FIPS code),
+  year: number,
+  income: number (MAGI),
+  members: [
+    { age: number, uses_tobacco: boolean, dob: string }
+  ]
+}
+lastResults: {
+  plans: array,
+  aptc_amount: number
 }
 ```
 
-**Key Implementation Details:**
-- Allocation validation: must total 100% for investment accounts
-- Real-time allocation total display
-- Smart display: only shows non-zero asset classes
-- Integration: pulls FI number from Budget to show progress
+**Critical Details:**
+- Uses 2024 as default year (2025 data incomplete)
+- APTC is per household, not per person (use first estimate only)
+- Plans grouped by metal level, shows min/max premiums
+- Color-coded by metal (Bronze=#cd7f32, Silver=#c0c0c0, etc.)
+- Calculates average Silver cost for Budget integration
 
-### 5. RETIREMENT SIMULATOR (modules/retirement-sim.js)
+**Known Issues:**
+- API returns max 10 plans per metal level despite requesting 20
+- aptc_eligible_premium often returns 0 (use eligibility endpoint instead)
+
+### 6. RETIREMENT SIMULATOR (modules/retirement-sim.js)
 **Purpose:** Test retirement sustainability using historical market data (1871-2024)
 
 **Features:**
@@ -436,7 +490,69 @@ getData() returns {
 - Visual feedback for Portfolio/Budget pulls
 - Color-coded success rates: green (≥95%), yellow (≥85%), red (<85%)
 
-### 6. SIMULATION ENGINE (shared/simulation-engine.js)
+### 7. YEARS TO FI MODULE (modules/years-to-fi.js)
+**Purpose:** Calculate time to reach Financial Independence using historical market data
+
+**Features:**
+- Auto-populates from other modules (Budget, Portfolio, Income)
+- Custom override support with visual indicators (yellow background, "custom" label)
+- Reset to calculated values option
+- Two calculation modes: Historical Analysis or Custom Return Rate
+- Historical simulation uses actual Shiller data (1871-2024)
+- Uses actual portfolio allocation from Portfolio module
+- Shows percentile ranges (10th, 50th, 90th)
+- Progress bar showing current % to FI
+
+**Data Structure:**
+```javascript
+inputs: {
+    fiNumber: number,
+    fiNumberCustom: boolean,
+    currentPortfolio: number,
+    currentPortfolioCustom: boolean,
+    annualSavings: number,
+    annualSavingsCustom: boolean,
+    calculationMode: 'historical' | 'custom',
+    expectedReturn: number  // only used in custom mode
+}
+
+lastResults: {
+    yearsSimple: number | null,
+    historicalResults: {
+        scenarios: array,
+        totalScenarios: number,
+        percentile10: number,
+        percentile50: number,
+        percentile90: number,
+        min: number,
+        max: number,
+        allocation: object
+    },
+    currentProgress: string,
+    mode: string
+}
+```
+
+**Auto-populate sources:**
+- FI Number: Budget module (25x annual expenses)
+- Current Portfolio: Portfolio module (total account balances)
+- Annual Savings: Portfolio contributions + (Income - Budget expenses)
+
+**Public API:**
+```javascript
+getData() returns {
+    inputs: object,
+    lastResults: object
+}
+```
+
+**Key Implementation Details:**
+- Reads directly from localStorage if modules not loaded yet
+- Custom flag prevents auto-populate from overwriting user edits
+- Historical sim uses actual portfolio allocation (stocks/bonds/cash)
+- Alternative assets (Crypto, Gold, ESOP) treated as stocks in simulation
+
+### 8. SIMULATION ENGINE (shared/simulation-engine.js)
 **Purpose:** Reusable historical backtesting engine for FIRE calculations
 
 **Core Functions:**
@@ -446,6 +562,8 @@ getData() returns {
 - `calculatePortfolioReturn()` - Weighted returns based on allocation
 - `calculateStatistics()` - Percentiles, best/worst cases
 - `validateParams()` - Input validation
+- `isDataLoaded()` - Check if historical data is loaded
+- `getHistoricalData()` - Get raw historical data array
 
 **Usage Example:**
 ```javascript
@@ -467,7 +585,7 @@ console.log('Success Rate:', results.successRate);
 - Best historical period: 1982 start (portfolio grows significantly)
 
 **Future Uses:**
-- Years to FI calculator (accumulation phase)
+- Years to FI calculator (accumulation phase) ✅ IMPLEMENTED
 - Bucket strategy testing
 - Withdrawal strategy comparison
 - Roth conversion timing
@@ -503,30 +621,33 @@ MODULES TO BUILD - PRIORITY ORDER
 
 ### HIGH PRIORITY
 
-**1. Years to FI Calculator**
-**Purpose:** Simple calculation of time to reach FI
+**1. Withdrawal Strategy / Smart Withdrawal Simulator**
+**Purpose:** Determine optimal withdrawal sequencing to minimize taxes and ACA premiums
 
-**Formula:**
-- FI Number (from Budget): annual expenses × 25
-- Current Savings (from Portfolio)
-- Annual Savings (from Portfolio)
-- Years = (FI Number - Current Savings) / Annual Savings
+**The Core Problem:**
+- Which accounts to withdraw from first? (Taxable, Traditional, Roth)
+- When to do Roth conversions?
+- How to stay under ACA subsidy cliffs?
+- How to manage RMDs?
 
-**Enhancements:**
-- Account for investment returns (compound growth)
-- Show sensitivity analysis (what if returns vary?)
-- Show impact of increasing savings rate
-- Graph showing progress over time
+**Approach:**
+- Year-by-year simulation from retirement to life expectancy
+- Each year, optimize withdrawal mix to minimize taxes while meeting spending needs
+- Track Roth ladder (5-year rule)
+- Track RMD requirements after age 73
+- Stay under ACA income thresholds when possible
 
-**Integration:**
-- Pulls from Budget: FI number
-- Pulls from Portfolio: current savings, savings rate
-- Could use Simulation Engine for historical accumulation scenarios
+**Key Heuristics:**
+- Fill 0% LTCG bracket with capital gains harvesting
+- Fill low ordinary income brackets with Roth conversions
+- Withdraw from taxable first (generally), but consider tax bracket arbitrage
+- Consider ACA cliff (400% FPL) and IRMAA thresholds
 
-**Implementation Notes:**
-- Could use `SimulationEngine` to test accumulation with historical returns
-- Show distribution of years to FI across different historical periods
-- Compare to simple fixed-return calculation
+**Output:**
+- Year-by-year withdrawal plan
+- Recommended Roth conversion amounts
+- Projected ACA premiums
+- Warnings for problem years (RMDs pushing over cliffs, etc.)
 
 ### MEDIUM PRIORITY
 
@@ -544,17 +665,7 @@ MODULES TO BUILD - PRIORITY ORDER
 - Test against historical data
 - Compare to simple allocation
 
-**3. Tax Calculator Enhancements**
-**Purpose:** More sophisticated tax optimization
-
-**Add:**
-- Roth conversion analysis (which we made a separate module)
-- Tax-efficient withdrawal sequencing
-- RMD calculations
-- State taxes (optional, complex)
-- Medicare IRMAA brackets
-
-**4. Roth Conversion Optimizer**
+**3. Roth Conversion Optimizer**
 **Purpose:** Determine optimal Roth conversion amounts
 
 **Features:**
@@ -565,23 +676,7 @@ MODULES TO BUILD - PRIORITY ORDER
 
 ### LOW PRIORITY
 
-**5. Withdrawal Strategy Comparison**
-**Purpose:** Compare different withdrawal methods
-
-**Strategies to test:**
-- 4% rule (fixed)
-- Variable percentage
-- Guardrails (Guyton-Klinger)
-- Required Minimum Distribution (RMD) based
-- Ratcheting (can increase but not decrease)
-
-**Output:**
-- Success rates for each
-- Expected spending variability
-- Failure modes
-- Best/worst case scenarios
-
-**6. Dashboard**
+**4. Dashboard**
 **Purpose:** Integrated view of entire plan
 
 **Features:**
@@ -591,6 +686,34 @@ MODULES TO BUILD - PRIORITY ORDER
 - Healthcare cost estimate
 - Visual timeline to FI
 - What-if scenarios
+
+SAVINGS RATE CALCULATION
+-------------------------
+The app uses take-home pay (not gross income) for savings rate calculations.
+
+**Formula:**
+```
+Savings Rate = (contributions + leftover cash) / (take-home + contributions)
+```
+
+**Where:**
+- contributions = 401k, IRA, HSA contributions from Portfolio module
+- leftover cash = Income.annualTotal - Budget.annualTotal (if positive)
+- take-home = Income.annualTotal (what hits your bank account)
+
+**Why this formula:**
+- Take-home already has 401k contributions removed
+- Adding contributions back to denominator gives accurate gross income proxy
+- Employer match and ESOP don't count (you didn't choose to save that)
+
+**Example:**
+- Take-home: $80,000/year
+- 401k contribution: $23,000/year
+- Budget expenses: $50,000/year
+- Leftover cash: $80k - $50k = $30k
+- Total saved: $23k + $30k = $53k
+- Gross income proxy: $80k + $23k = $103k
+- Savings rate: $53k / $103k = 51%
 
 CODING CONVENTIONS
 ------------------
@@ -612,7 +735,7 @@ CODING CONVENTIONS
 - Keep inline styles for simplicity (no CSS files)
 - Always use semantic HTML (form, label, button)
 - Inputs always have labels
-- Forms always prevent default
+- Forms: use type="button" with onclick for calculate buttons (avoids validation issues with hidden required fields)
 
 ### Data Persistence
 - Save after EVERY data change
@@ -656,14 +779,39 @@ const budget = window.modules['budget'].getData();
 console.log(`FI Number: ${budget.fiNumber}`);
 ```
 
+### Reading Data When Modules Not Loaded
+Since modules load dynamically, sometimes you need to read directly from localStorage:
+
+```javascript
+// Try loaded module first
+let budgetData = window.modules?.budget?.getData();
+
+// If not loaded, read from localStorage
+if (!budgetData) {
+    const savedData = StateManager.load('budget');
+    if (savedData && savedData.expenses) {
+        // Calculate what you need from raw data
+        const annualTotal = savedData.expenses.reduce((sum, e) => {
+            const annual = e.frequency === 'monthly' ? e.amount * 12 : e.amount;
+            return sum + annual;
+        }, 0);
+        budgetData = { annualTotal, fiNumber: annualTotal * 25 };
+    }
+}
+```
+
 ### Integration Points
 - Budget → Years to FI (FI number)
 - Budget → ACA (income estimate)
 - Budget → Tax (annual spending)
-- Portfolio → Years to FI (current savings, savings rate)
+- Portfolio → Years to FI (current savings, savings rate, allocation)
+- Portfolio → Retirement Simulator (balance, allocation)
+- Income → Portfolio (for savings rate calculation)
+- Income → Years to FI (for annual savings calculation)
 - Tax → ACA (MAGI calculation)
 - ACA → Budget (healthcare cost)
 - Historical Data → Retirement Simulator
+- Historical Data → Years to FI
 - All modules → Dashboard
 
 ### Optional vs Required Integration
@@ -671,6 +819,7 @@ console.log(`FI Number: ${budget.fiNumber}`);
 - Integration is OPTIONAL but helpful
 - Show "Pull from [Module]" buttons where integration helps
 - Never require another module to function
+- Auto-populate when possible, allow custom override
 
 TESTING CHECKLIST
 -----------------
@@ -685,6 +834,8 @@ When building a new module, test:
 ✅ Works in Chrome, Firefox, Safari
 ✅ No console errors
 ✅ Integration with other modules works
+✅ Auto-populate from other modules works
+✅ Custom override preserves user edits
 
 KNOWN ISSUES & LIMITATIONS
 ---------------------------
@@ -741,14 +892,12 @@ FUTURE ENHANCEMENTS
 -------------------
 
 ### Phase 1 (Near-term)
-- Complete Portfolio module
-- Complete Years to FI calculator
-- Add "Send to Budget" integration for ACA/Tax
-- Import functionality (currently only export)
+- Smart Withdrawal Simulator (the "holy grail")
+- Roth Conversion Optimizer
+- Dashboard with integrated view
 
 ### Phase 2 (Medium-term)
-- Retirement simulator with historical data
-- Roth conversion optimizer
+- Bucket Strategy Builder
 - Better error handling and validation
 - Undo/redo functionality
 - Multiple scenarios comparison
@@ -796,13 +945,10 @@ QUESTIONS FOR USER
 ------------------
 When continuing development, ask the user:
 
-1. **User's location:** State (for state tax if expanding beyond Florida)
-2. **Priority:** Which module to build next?
-3. **Integration:** Should modules auto-populate from each other?
-4. **Complexity:** How sophisticated should retirement simulator be?
-5. **Design:** Want to add colors/styling or keep minimal?
-6. **Mobile:** Test on actual devices or just browser?
-7. **Data:** Keep using historical data or add Monte Carlo simulation?
+1. **Priority:** Which module to build next? (Withdrawal Strategy is the "holy grail")
+2. **Complexity:** How sophisticated should withdrawal optimizer be?
+3. **Design:** Want to add colors/styling or keep minimal?
+4. **Mobile:** Test on actual devices or just browser?
 
 EMERGENCY RECOVERY
 ------------------
@@ -819,10 +965,9 @@ If something breaks:
 CONTACT & HANDOFF
 -----------------
 **Project Owner:** Frank (FireOutpost.com)
-**Git Repository:** Local repository on Frank's machine
-**Current Status:** 3 modules complete, 7 to go
-**Last Session:** November 27, 2025
-**Token Usage:** ~135k tokens
+**Git Repository:** GitHub
+**Current Status:** 7 modules complete, 4 to go
+**Last Session:** December 7, 2025
 
 **To pick up development:**
 1. Read this entire HANDOFF.md
