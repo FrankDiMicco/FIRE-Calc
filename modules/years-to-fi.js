@@ -700,9 +700,15 @@
             // Add historical results if available (shown in both modes, but primary in historical mode)
             if (results.historicalResults) {
                 const hist = results.historicalResults;
-                const allocInfo = results.historicalResults.allocation ?
-                    `Using ${results.historicalResults.allocation.stocks.toFixed(0)}% stocks / ${results.historicalResults.allocation.bonds.toFixed(0)}% bonds allocation from your Portfolio` :
-                    '';
+                let allocInfo = '';
+                if (results.historicalResults.allocation) {
+                    const alloc = results.historicalResults.allocation;
+                    const parts = [];
+                    if (alloc.stocks > 0) parts.push(`${alloc.stocks.toFixed(0)}% stocks`);
+                    if (alloc.bonds > 0) parts.push(`${alloc.bonds.toFixed(0)}% bonds`);
+                    if (alloc.cash > 0) parts.push(`${alloc.cash.toFixed(0)}% cash`);
+                    allocInfo = `Using ${parts.join(' / ')} allocation from your Portfolio`;
+                }
 
                 html += `
                     <div style="background: #fff3e0; padding: 20px; border-radius: 4px; margin-bottom: 20px;">
