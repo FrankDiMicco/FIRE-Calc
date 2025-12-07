@@ -14,6 +14,7 @@ Option for different portfolios. Port 1, Port 2, etc.
 
 
 Retirement simulator
+Does the simulator account for future income like SS or inheritance? 
 Save scenarios
 
 Years to FI
