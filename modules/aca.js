@@ -14,9 +14,10 @@
         income: 0,
         members: []
     };
-    
+
     let lastResults = null; // Store last calculation results
-    
+    let selectedPlanTier = null; // Track which plan tier is currently in Budget
+
     let apiKey = ''; // User will add their CMS API key here
     
     // Module definition
@@ -27,12 +28,13 @@
             if (savedData) {
                 householdData = savedData.householdData || householdData;
                 lastResults = savedData.lastResults || null;
+                selectedPlanTier = savedData.selectedPlanTier || null;
                 apiKey = savedData.apiKey || '';
             }
-            
+
             // Render the module UI
             this.render();
-            
+
             // If we have last results, display them
             if (lastResults) {
                 this.displayResults(lastResults);
@@ -486,17 +488,23 @@ ${JSON.stringify(data, null, 2)}
                     // Calculate average cost for this tier (after subsidy)
                     const avgCost = (minAfterSubsidy + maxAfterSubsidy) / 2;
 
+                    // Check if this tier is currently selected for Budget
+                    const isSelected = selectedPlanTier === metal;
+                    const selectedStyle = isSelected ? 'background: #e8f5e9; border: 2px solid #4caf50;' : 'background: white;';
+                    const selectedBadge = isSelected ? '<span style="background: #4caf50; color: white; padding: 3px 8px; border-radius: 3px; font-size: 0.75em; margin-left: 8px;">✓ In Budget</span>' : '';
+
                     html += `
                         <div onclick="window.modules['aca'].sendToBudget(${avgCost}, '${metal}')"
-                             style="margin-bottom: 12px; padding: 12px; background: white; border-radius: 4px;
+                             style="margin-bottom: 12px; padding: 12px; ${selectedStyle} border-radius: 4px;
                                     border-left: 4px solid ${this.getMetalColor(metal)}; cursor: pointer;
-                                    transition: all 0.2s;"
+                                    transition: all 0.2s; ${isSelected ? 'box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);' : ''}"
                              onmouseover="this.style.background='#f5f5f5'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)';"
-                             onmouseout="this.style.background='white'; this.style.boxShadow='none';">
+                             onmouseout="this.style.background='${isSelected ? '#e8f5e9' : 'white'}'; this.style.boxShadow='${isSelected ? '0 2px 8px rgba(76, 175, 80, 0.3)' : 'none'}';">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <div>
                                     <strong>${metal}</strong>
                                     <span style="color: #666; font-size: 0.9em;"> (${plans.length} plan${plans.length > 1 ? 's' : ''})</span>
+                                    ${selectedBadge}
                                 </div>
                                 <div style="text-align: right;">
                                     <div style="font-size: 0.9em; color: #666;">Before subsidy:</div>
@@ -579,10 +587,19 @@ ${JSON.stringify(data, null, 2)}
             budgetData.expenses = expenses;
             StateManager.save('budget', budgetData);
 
+            // Store which plan tier was selected
+            selectedPlanTier = metalTier;
+            this.save();
+
             // Re-render Budget module if it's currently displayed
             if (window.modules['budget'].renderExpensesList) {
                 window.modules['budget'].renderExpensesList();
                 window.modules['budget'].renderSummary();
+            }
+
+            // Re-render ACA results to show the new selection
+            if (lastResults) {
+                this.displayResults(lastResults);
             }
 
             // Show confirmation
@@ -590,7 +607,7 @@ ${JSON.stringify(data, null, 2)}
         },
         
         save() {
-            StateManager.save('aca', { householdData, lastResults, apiKey });
+            StateManager.save('aca', { householdData, lastResults, selectedPlanTier, apiKey });
         },
         
         exportData() {

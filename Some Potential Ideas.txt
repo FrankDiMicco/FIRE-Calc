@@ -1,5 +1,6 @@
 Landing Page  
 Show figures in Module buttons?
+Show a check mark or something to indicate each module is complete?
 
 
 Budget
@@ -15,11 +16,14 @@ backward tax calculations.
 
 Portfolio
 Option for different portfolios. Port 1, Port 2, etc.
+Cost basis section
 
 
 Retirement simulator
 Does the simulator account for future income like SS or inheritance? 
 Save scenarios
 
+
 Years to FI
 Does the calculation go off of the savings rate or the contributions in the portfolio module.
+
