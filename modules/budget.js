@@ -8,6 +8,7 @@
     // Budget module state
     let expenses = [];
     let editingExpenseId = null; // Track if we're editing an expense
+    let selectedWithdrawalRate = 4.0; // Default to 4% withdrawal rate
     
     // Module definition
     window.modules['budget'] = {
@@ -16,6 +17,9 @@
             const savedData = StateManager.load('budget');
             if (savedData && savedData.expenses) {
                 expenses = savedData.expenses;
+            }
+            if (savedData && savedData.selectedWithdrawalRate) {
+                selectedWithdrawalRate = savedData.selectedWithdrawalRate;
             }
             
             // Check if we need to add Healthcare expense
@@ -359,41 +363,86 @@
         
         renderSummary() {
             const container = document.getElementById('expensesSummary');
-            
+
             const annualTotal = expenses.reduce((sum, expense) => {
                 const annual = expense.frequency === 'monthly' ? expense.amount * 12 : expense.amount;
                 return sum + annual;
             }, 0);
-            
+
             const essentialTotal = expenses
                 .filter(e => e.essential)
                 .reduce((sum, expense) => {
                     const annual = expense.frequency === 'monthly' ? expense.amount * 12 : expense.amount;
                     return sum + annual;
                 }, 0);
-            
-            const fiNumber = annualTotal * 25;
-            
+
+            // Calculate FI numbers for different withdrawal rates
+            const fiOptions = [
+                { rate: 5.0, multiplier: 20, value: annualTotal * 20 },
+                { rate: 4.5, multiplier: 22.22, value: annualTotal * 22.22 },
+                { rate: 4.0, multiplier: 25, value: annualTotal * 25 },
+                { rate: 3.5, multiplier: 28.57, value: annualTotal * 28.57 },
+                { rate: 3.0, multiplier: 33.33, value: annualTotal * 33.33 }
+            ];
+
+            const fiOptionsHtml = fiOptions.map(option => {
+                const isSelected = option.rate === selectedWithdrawalRate;
+                const selectedStyle = isSelected
+                    ? 'background: #e3f2fd; border-left: 3px solid #2196f3; padding: 5px 5px 5px 8px; margin-left: -8px;'
+                    : 'padding: 5px 5px 5px 3px; margin-left: -3px;';
+
+                return `
+                    <div class="fi-option" data-rate="${option.rate}"
+                         style="margin-bottom: 5px; color: #666; cursor: pointer; border-radius: 3px; ${selectedStyle}"
+                         onmouseover="this.style.background='#f0f0f0'"
+                         onmouseout="this.style.background='${isSelected ? '#e3f2fd' : 'transparent'}'">
+                        <strong>${option.rate.toFixed(1)}%:</strong> $${option.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        <span style="color: #999; font-size: 0.85em;">(${option.multiplier}x)</span>
+                        ${isSelected ? '<span style="color: #2196f3; font-size: 0.85em; margin-left: 8px;">✓ Selected</span>' : ''}
+                    </div>
+                `;
+            }).join('');
+
             container.innerHTML = `
                 <div style="background: #f5f5f5; padding: 15px; border-radius: 4px;">
                     <div style="margin-bottom: 10px;">
-                        <strong>Annual Expenses:</strong> $${annualTotal.toFixed(2)}
+                        <strong>Annual Expenses:</strong> $${annualTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                     <div style="margin-bottom: 10px;">
-                        <strong>Essential Expenses:</strong> $${essentialTotal.toFixed(2)}
+                        <strong>Essential Expenses:</strong> $${essentialTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                     <div style="margin-bottom: 10px;">
-                        <strong>Discretionary Expenses:</strong> $${(annualTotal - essentialTotal).toFixed(2)}
+                        <strong>Discretionary Expenses:</strong> $${(annualTotal - essentialTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                     <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
-                        <strong>FI Number (25x):</strong> $${fiNumber.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <strong>FI Numbers (by Withdrawal Rate):</strong>
+                        <small style="color: #999; display: block; margin-top: 3px; margin-bottom: 8px;">Click to select your target FI number</small>
+                        <div style="margin-top: 8px; padding-left: 10px;">
+                            ${fiOptionsHtml}
+                        </div>
                     </div>
                 </div>
             `;
+
+            // Add click handlers for FI options
+            const fiOptionElements = container.querySelectorAll('.fi-option');
+            fiOptionElements.forEach(element => {
+                element.addEventListener('click', () => {
+                    const rate = parseFloat(element.getAttribute('data-rate'));
+                    selectedWithdrawalRate = rate;
+                    this.save();
+                    this.renderSummary();
+
+                    // Re-render portfolio module if it's available to update FI progress
+                    if (window.modules['portfolio'] && window.modules['portfolio'].renderSummary) {
+                        window.modules['portfolio'].renderSummary();
+                    }
+                });
+            });
         },
         
         save() {
-            StateManager.save('budget', { expenses });
+            StateManager.save('budget', { expenses, selectedWithdrawalRate });
         },
         
         exportData() {
@@ -425,20 +474,25 @@
                 const annual = expense.frequency === 'monthly' ? expense.amount * 12 : expense.amount;
                 return sum + annual;
             }, 0);
-            
+
             const essentialTotal = expenses
                 .filter(e => e.essential)
                 .reduce((sum, expense) => {
                     const annual = expense.frequency === 'monthly' ? expense.amount * 12 : expense.amount;
                     return sum + annual;
                 }, 0);
-            
+
+            // Calculate FI number based on selected withdrawal rate
+            const multiplier = 100 / selectedWithdrawalRate;
+            const fiNumber = annualTotal * multiplier;
+
             return {
                 expenses,
                 annualTotal,
                 essentialTotal,
                 discretionaryTotal: annualTotal - essentialTotal,
-                fiNumber: annualTotal * 25
+                fiNumber: fiNumber,
+                selectedWithdrawalRate: selectedWithdrawalRate
             };
         }
     };

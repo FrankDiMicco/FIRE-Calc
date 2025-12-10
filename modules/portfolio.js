@@ -525,11 +525,13 @@
                     if (budgetData.fiNumber > 0) {
                         const progressPct = (totalValue / budgetData.fiNumber * 100).toFixed(1);
                         const remaining = budgetData.fiNumber - totalValue;
+                        const withdrawalRate = budgetData.selectedWithdrawalRate || 4.0;
 
                         fiProgressHtml = `
                             <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
                                 <div style="margin-bottom: 5px;">
                                     <strong>FI Number:</strong> $${budgetData.fiNumber.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    <span style="color: #999; font-size: 0.85em;">(${withdrawalRate}% withdrawal rate)</span>
                                 </div>
                                 <div style="margin-bottom: 8px;">
                                     <strong>Progress to FI:</strong> ${progressPct}%
