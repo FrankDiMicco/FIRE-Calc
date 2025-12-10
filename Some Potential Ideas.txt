@@ -12,6 +12,7 @@ Persistent "Close" button so don't have to scroll up to the top to exit
 
 Taxes
 backward tax calculations. 
+Next to "Total Federal Tax:"  click to add to budget option for any taxes owed
 
 
 Portfolio

@@ -544,17 +544,60 @@ ${JSON.stringify(data, null, 2)}
             return colors[metal] || '#666';
         },
         
+        showNotification(message) {
+            // Create or get notification element
+            let notification = document.getElementById('acaNotification');
+            if (!notification) {
+                notification = document.createElement('div');
+                notification.id = 'acaNotification';
+                document.body.appendChild(notification);
+            }
+
+            // Set notification style and content
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #4caf50;
+                color: white;
+                padding: 15px 30px;
+                border-radius: 4px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                z-index: 10000;
+                font-size: 1em;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+            `;
+            notification.textContent = message;
+
+            // Fade in
+            setTimeout(() => {
+                notification.style.opacity = '1';
+            }, 10);
+
+            // Fade out and remove after 3 seconds
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        },
+
         sendToBudget(monthlyCost, metalTier) {
             // Check if Budget module is available
             if (!window.modules || !window.modules['budget']) {
-                alert('Budget module not loaded. Please open the Budget module first.');
+                this.showNotification('⚠ Please open the Budget module first');
                 return;
             }
 
             // Get the Budget module's data
             const budgetData = StateManager.load('budget');
             if (!budgetData) {
-                alert('No budget data found. Please open the Budget module and set up your expenses first.');
+                this.showNotification('⚠ No budget data found. Please set up Budget first.');
                 return;
             }
 
@@ -591,19 +634,19 @@ ${JSON.stringify(data, null, 2)}
             selectedPlanTier = metalTier;
             this.save();
 
+            // Re-render ACA results to show the new selection immediately
+            if (lastResults) {
+                this.displayResults(lastResults);
+            }
+
             // Re-render Budget module if it's currently displayed
             if (window.modules['budget'].renderExpensesList) {
                 window.modules['budget'].renderExpensesList();
                 window.modules['budget'].renderSummary();
             }
 
-            // Re-render ACA results to show the new selection
-            if (lastResults) {
-                this.displayResults(lastResults);
-            }
-
-            // Show confirmation
-            alert(`✓ Healthcare expense updated in Budget:\n${metalTier} plan at $${monthlyCost.toFixed(2)}/month`);
+            // Show non-blocking notification
+            this.showNotification(`✓ ${metalTier} plan added to Budget ($${monthlyCost.toFixed(2)}/month)`);
         },
         
         save() {
