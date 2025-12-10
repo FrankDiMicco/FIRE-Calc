@@ -28,8 +28,14 @@
             container.innerHTML = `
                 <div class="income-module">
                     <div class="section">
-                        <h3>Add Income Source</h3>
-                        <form id="addIncomeForm" style="margin-bottom: 20px;">
+                        <button id="toggleIncomeFormBtn"
+                                style="background: #333; color: white; border: none; padding: 10px 20px;
+                                       border-radius: 4px; cursor: pointer; margin-bottom: 15px;">
+                            + Add Income
+                        </button>
+                        <div id="incomeFormContainer" style="display: none;">
+                            <h3>Add Income Source</h3>
+                            <form id="addIncomeForm" style="margin-bottom: 20px;">
                             <div style="margin-bottom: 10px;">
                                 <label style="display: block; margin-bottom: 5px;">Name:</label>
                                 <input type="text" id="incomeName" required
@@ -113,6 +119,7 @@
                                 Add Income
                             </button>
                         </form>
+                        </div>
                     </div>
 
                     <div class="section">
@@ -142,6 +149,19 @@
             `;
 
             // Attach event listeners
+            document.getElementById('toggleIncomeFormBtn').addEventListener('click', () => {
+                const formContainer = document.getElementById('incomeFormContainer');
+                const toggleBtn = document.getElementById('toggleIncomeFormBtn');
+
+                if (formContainer.style.display === 'none') {
+                    formContainer.style.display = 'block';
+                    toggleBtn.textContent = '− Hide Form';
+                } else {
+                    formContainer.style.display = 'none';
+                    toggleBtn.textContent = '+ Add Income';
+                }
+            });
+
             document.getElementById('addIncomeForm').addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.addIncome();
@@ -228,6 +248,10 @@
             document.getElementById('advancedOptions').style.display = 'none';
             document.getElementById('toggleAdvanced').innerHTML = '▶ Advanced Options';
 
+            // Hide the form after adding/updating
+            document.getElementById('incomeFormContainer').style.display = 'none';
+            document.getElementById('toggleIncomeFormBtn').textContent = '+ Add Income';
+
             // Re-render
             this.renderIncomeList();
             this.renderSummary();
@@ -246,6 +270,10 @@
 
             // Set editing state
             editingIncomeId = id;
+
+            // Show the form
+            document.getElementById('incomeFormContainer').style.display = 'block';
+            document.getElementById('toggleIncomeFormBtn').textContent = '− Hide Form';
 
             // Change button text to "Update Income"
             document.getElementById('submitIncomeBtn').textContent = 'Update Income';

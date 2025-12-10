@@ -28,8 +28,14 @@
             container.innerHTML = `
                 <div class="portfolio-module">
                     <div class="section">
-                        <h3>Add Account</h3>
-                        <form id="addAccountForm" style="margin-bottom: 20px;">
+                        <button id="toggleAccountFormBtn"
+                                style="background: #333; color: white; border: none; padding: 10px 20px;
+                                       border-radius: 4px; cursor: pointer; margin-bottom: 15px;">
+                            + Add Account
+                        </button>
+                        <div id="accountFormContainer" style="display: none;">
+                            <h3>Add Account</h3>
+                            <form id="addAccountForm" style="margin-bottom: 20px;">
                             <div style="margin-bottom: 10px;">
                                 <label style="display: block; margin-bottom: 5px;">Account Name:</label>
                                 <input type="text" id="accountName" required placeholder="e.g., My Vanguard 401k"
@@ -118,6 +124,7 @@
                                 Add Account
                             </button>
                         </form>
+                        </div>
                     </div>
 
                     <div class="section">
@@ -147,6 +154,19 @@
             `;
 
             // Attach event listeners
+            document.getElementById('toggleAccountFormBtn').addEventListener('click', () => {
+                const formContainer = document.getElementById('accountFormContainer');
+                const toggleBtn = document.getElementById('toggleAccountFormBtn');
+
+                if (formContainer.style.display === 'none') {
+                    formContainer.style.display = 'block';
+                    toggleBtn.textContent = '− Hide Form';
+                } else {
+                    formContainer.style.display = 'none';
+                    toggleBtn.textContent = '+ Add Account';
+                }
+            });
+
             document.getElementById('addAccountForm').addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.addAccount();
@@ -298,6 +318,10 @@
             document.getElementById('submitAccountBtn').textContent = 'Add Account';
             document.getElementById('allocationWarning').style.display = 'none';
 
+            // Hide the form after adding/updating
+            document.getElementById('accountFormContainer').style.display = 'none';
+            document.getElementById('toggleAccountFormBtn').textContent = '+ Add Account';
+
             // Re-render
             this.renderAccountsList();
             this.renderSummary();
@@ -318,6 +342,10 @@
 
             // Set editing state
             editingAccountId = id;
+
+            // Show the form
+            document.getElementById('accountFormContainer').style.display = 'block';
+            document.getElementById('toggleAccountFormBtn').textContent = '− Hide Form';
 
             // Change button text to "Update Account"
             document.getElementById('submitAccountBtn').textContent = 'Update Account';

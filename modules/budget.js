@@ -45,8 +45,14 @@
             container.innerHTML = `
                 <div class="budget-module">
                     <div class="section">
-                        <h3>Add Expense</h3>
-                        <form id="addExpenseForm" style="margin-bottom: 20px;">
+                        <button id="toggleExpenseFormBtn"
+                                style="background: #333; color: white; border: none; padding: 10px 20px;
+                                       border-radius: 4px; cursor: pointer; margin-bottom: 15px;">
+                            + Add Expense
+                        </button>
+                        <div id="expenseFormContainer" style="display: none;">
+                            <h3>Add Expense</h3>
+                            <form id="addExpenseForm" style="margin-bottom: 20px;">
                             <div style="margin-bottom: 10px;">
                                 <label style="display: block; margin-bottom: 5px;">Name:</label>
                                 <input type="text" id="expenseName" required 
@@ -97,13 +103,14 @@
                             </div>
                             
                             <button type="submit" id="submitExpenseBtn"
-                                    style="background: #333; color: white; border: none; padding: 10px 20px; 
+                                    style="background: #333; color: white; border: none; padding: 10px 20px;
                                            border-radius: 4px; cursor: pointer;">
                                 Add Expense
                             </button>
                         </form>
+                        </div>
                     </div>
-                    
+
                     <div class="section">
                         <h3>Your Expenses</h3>
                         <div id="expensesList"></div>
@@ -131,11 +138,24 @@
             `;
             
             // Attach event listeners
+            document.getElementById('toggleExpenseFormBtn').addEventListener('click', () => {
+                const formContainer = document.getElementById('expenseFormContainer');
+                const toggleBtn = document.getElementById('toggleExpenseFormBtn');
+
+                if (formContainer.style.display === 'none') {
+                    formContainer.style.display = 'block';
+                    toggleBtn.textContent = '− Hide Form';
+                } else {
+                    formContainer.style.display = 'none';
+                    toggleBtn.textContent = '+ Add Expense';
+                }
+            });
+
             document.getElementById('addExpenseForm').addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.addExpense();
             });
-            
+
             // Toggle advanced options
             document.getElementById('toggleAdvanced').addEventListener('click', (e) => {
                 e.preventDefault();
@@ -204,15 +224,19 @@
             }
             
             this.save();
-            
+
             // Clear form and reset button
             document.getElementById('addExpenseForm').reset();
             document.getElementById('submitExpenseBtn').textContent = 'Add Expense';
-            
+
             // Hide advanced options and reset toggle
             document.getElementById('advancedOptions').style.display = 'none';
             document.getElementById('toggleAdvanced').innerHTML = '▶ Advanced Options';
-            
+
+            // Hide the form after adding/updating
+            document.getElementById('expenseFormContainer').style.display = 'none';
+            document.getElementById('toggleExpenseFormBtn').textContent = '+ Add Expense';
+
             // Re-render
             this.renderExpensesList();
             this.renderSummary();
@@ -228,10 +252,14 @@
         editExpense(id) {
             const expense = expenses.find(e => e.id === id);
             if (!expense) return;
-            
+
             // Set editing state
             editingExpenseId = id;
-            
+
+            // Show the form
+            document.getElementById('expenseFormContainer').style.display = 'block';
+            document.getElementById('toggleExpenseFormBtn').textContent = '− Hide Form';
+
             // Change button text to "Update Expense"
             document.getElementById('submitExpenseBtn').textContent = 'Update Expense';
             
