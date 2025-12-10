@@ -544,93 +544,8 @@ ${JSON.stringify(data, null, 2)}
             return colors[metal] || '#666';
         },
         
-        showNotification(message) {
-            // Create or get notification element
-            let notification = document.getElementById('acaNotification');
-            if (!notification) {
-                notification = document.createElement('div');
-                notification.id = 'acaNotification';
-                document.body.appendChild(notification);
-            }
-
-            // Set notification style and content
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: #4caf50;
-                color: white;
-                padding: 15px 30px;
-                border-radius: 4px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                z-index: 10000;
-                font-size: 1em;
-                opacity: 0;
-                transition: opacity 0.3s ease;
-            `;
-            notification.textContent = message;
-
-            // Fade in
-            setTimeout(() => {
-                notification.style.opacity = '1';
-            }, 10);
-
-            // Fade out and remove after 3 seconds
-            setTimeout(() => {
-                notification.style.opacity = '0';
-                setTimeout(() => {
-                    if (notification.parentNode) {
-                        notification.parentNode.removeChild(notification);
-                    }
-                }, 300);
-            }, 3000);
-        },
-
         sendToBudget(monthlyCost, metalTier) {
-            // Check if Budget module is available
-            if (!window.modules || !window.modules['budget']) {
-                this.showNotification('⚠ Please open the Budget module first');
-                return;
-            }
-
-            // Get the Budget module's data
-            const budgetData = StateManager.load('budget');
-            if (!budgetData) {
-                this.showNotification('⚠ No budget data found. Please set up Budget first.');
-                return;
-            }
-
-            let expenses = budgetData.expenses || [];
-
-            // Find the Healthcare expense (marked with isHealthcare flag)
-            const healthcareIndex = expenses.findIndex(e => e.isHealthcare);
-
-            if (healthcareIndex >= 0) {
-                // Update existing Healthcare expense
-                expenses[healthcareIndex].amount = monthlyCost;
-                expenses[healthcareIndex].frequency = 'monthly';
-                expenses[healthcareIndex].name = `Healthcare (${metalTier})`;
-                expenses[healthcareIndex].essential = true;
-            } else {
-                // Create new Healthcare expense
-                expenses.push({
-                    id: Date.now(),
-                    name: `Healthcare (${metalTier})`,
-                    amount: monthlyCost,
-                    frequency: 'monthly',
-                    essential: true,
-                    startsIn: 0,
-                    lastsFor: null,
-                    isHealthcare: true
-                });
-            }
-
-            // Save back to localStorage (preserve selectedWithdrawalRate if it exists)
-            budgetData.expenses = expenses;
-            StateManager.save('budget', budgetData);
-
-            // Store which plan tier was selected
+            // Store which plan tier was selected (do this first for immediate visual feedback)
             selectedPlanTier = metalTier;
             this.save();
 
@@ -639,14 +554,44 @@ ${JSON.stringify(data, null, 2)}
                 this.displayResults(lastResults);
             }
 
-            // Re-render Budget module if it's currently displayed
-            if (window.modules['budget'].renderExpensesList) {
-                window.modules['budget'].renderExpensesList();
-                window.modules['budget'].renderSummary();
-            }
+            // Now update the Budget module data
+            const budgetData = StateManager.load('budget');
+            if (budgetData) {
+                let expenses = budgetData.expenses || [];
 
-            // Show non-blocking notification
-            this.showNotification(`✓ ${metalTier} plan added to Budget ($${monthlyCost.toFixed(2)}/month)`);
+                // Find the Healthcare expense (marked with isHealthcare flag)
+                const healthcareIndex = expenses.findIndex(e => e.isHealthcare);
+
+                if (healthcareIndex >= 0) {
+                    // Update existing Healthcare expense
+                    expenses[healthcareIndex].amount = monthlyCost;
+                    expenses[healthcareIndex].frequency = 'monthly';
+                    expenses[healthcareIndex].name = `Healthcare (${metalTier})`;
+                    expenses[healthcareIndex].essential = true;
+                } else {
+                    // Create new Healthcare expense
+                    expenses.push({
+                        id: Date.now(),
+                        name: `Healthcare (${metalTier})`,
+                        amount: monthlyCost,
+                        frequency: 'monthly',
+                        essential: true,
+                        startsIn: 0,
+                        lastsFor: null,
+                        isHealthcare: true
+                    });
+                }
+
+                // Save back to localStorage (preserve selectedWithdrawalRate if it exists)
+                budgetData.expenses = expenses;
+                StateManager.save('budget', budgetData);
+
+                // Re-render Budget module if it's currently displayed
+                if (window.modules && window.modules['budget'] && window.modules['budget'].renderExpensesList) {
+                    window.modules['budget'].renderExpensesList();
+                    window.modules['budget'].renderSummary();
+                }
+            }
         },
         
         save() {
