@@ -468,22 +468,31 @@ ${JSON.stringify(data, null, 2)}
             
             // Show plan ranges by metal level
             html += `<h4 style="margin-top: 15px; margin-bottom: 10px;">Available Plans:</h4>`;
-            
+            html += `<p style="color: #666; font-size: 0.9em; margin-bottom: 15px;">Click on a plan tier to send it to your Budget</p>`;
+
             ['Catastrophic', 'Bronze', 'Silver', 'Gold', 'Platinum'].forEach(metal => {
                 if (plansByMetal[metal] && plansByMetal[metal].length > 0) {
                     const plans = plansByMetal[metal];
-                    
+
                     // Get price range
                     const premiums = plans.map(p => p.premium || 0);
                     const minPremium = Math.min(...premiums);
                     const maxPremium = Math.max(...premiums);
-                    
+
                     // Calculate after subsidy
                     const minAfterSubsidy = Math.max(0, minPremium - aptc);
                     const maxAfterSubsidy = Math.max(0, maxPremium - aptc);
-                    
+
+                    // Calculate average cost for this tier (after subsidy)
+                    const avgCost = (minAfterSubsidy + maxAfterSubsidy) / 2;
+
                     html += `
-                        <div style="margin-bottom: 12px; padding: 12px; background: white; border-radius: 4px; border-left: 4px solid ${this.getMetalColor(metal)};">
+                        <div onclick="window.modules['aca'].sendToBudget(${avgCost}, '${metal}')"
+                             style="margin-bottom: 12px; padding: 12px; background: white; border-radius: 4px;
+                                    border-left: 4px solid ${this.getMetalColor(metal)}; cursor: pointer;
+                                    transition: all 0.2s;"
+                             onmouseover="this.style.background='#f5f5f5'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)';"
+                             onmouseout="this.style.background='white'; this.style.boxShadow='none';">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <div>
                                     <strong>${metal}</strong>
@@ -503,23 +512,7 @@ ${JSON.stringify(data, null, 2)}
                 }
             });
             
-            // Calculate average Silver plan cost for Budget integration
-            const silverPlans = plansByMetal['Silver'] || [];
-            let avgSilverCost = 0;
-            if (silverPlans.length > 0) {
-                const silverPremiums = silverPlans.map(p => Math.max(0, (p.premium || 0) - aptc));
-                avgSilverCost = silverPremiums.reduce((a, b) => a + b, 0) / silverPremiums.length;
-            }
-            
             html += `
-                    <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #4caf50;">
-                        <button onclick="window.modules['aca'].sendToBudget(${avgSilverCost})"
-                                style="background: #4caf50; color: white; border: none; padding: 10px 20px; 
-                                       border-radius: 4px; cursor: pointer;">
-                            Send Avg Silver Cost to Budget ($${avgSilverCost.toFixed(2)}/month)
-                        </button>
-                    </div>
-                    
                     <details style="margin-top: 15px;">
                         <summary style="cursor: pointer; color: #666;">View full API response</summary>
                         <pre style="background: #f5f5f5; padding: 10px; overflow: auto; font-size: 0.8em; max-height: 300px;">
@@ -543,10 +536,57 @@ ${JSON.stringify(data, null, 2)}
             return colors[metal] || '#666';
         },
         
-        sendToBudget(monthlyCost) {
-            // This will eventually integrate with Budget module
-            // For now, just show a message
-            alert(`Feature coming soon: This will update your Healthcare expense in Budget to $${monthlyCost.toFixed(2)}/month`);
+        sendToBudget(monthlyCost, metalTier) {
+            // Check if Budget module is available
+            if (!window.modules || !window.modules['budget']) {
+                alert('Budget module not loaded. Please open the Budget module first.');
+                return;
+            }
+
+            // Get the Budget module's data
+            const budgetData = StateManager.load('budget');
+            if (!budgetData) {
+                alert('No budget data found. Please open the Budget module and set up your expenses first.');
+                return;
+            }
+
+            let expenses = budgetData.expenses || [];
+
+            // Find the Healthcare expense (marked with isHealthcare flag)
+            const healthcareIndex = expenses.findIndex(e => e.isHealthcare);
+
+            if (healthcareIndex >= 0) {
+                // Update existing Healthcare expense
+                expenses[healthcareIndex].amount = monthlyCost;
+                expenses[healthcareIndex].frequency = 'monthly';
+                expenses[healthcareIndex].name = `Healthcare (${metalTier})`;
+                expenses[healthcareIndex].essential = true;
+            } else {
+                // Create new Healthcare expense
+                expenses.push({
+                    id: Date.now(),
+                    name: `Healthcare (${metalTier})`,
+                    amount: monthlyCost,
+                    frequency: 'monthly',
+                    essential: true,
+                    startsIn: 0,
+                    lastsFor: null,
+                    isHealthcare: true
+                });
+            }
+
+            // Save back to localStorage (preserve selectedWithdrawalRate if it exists)
+            budgetData.expenses = expenses;
+            StateManager.save('budget', budgetData);
+
+            // Re-render Budget module if it's currently displayed
+            if (window.modules['budget'].renderExpensesList) {
+                window.modules['budget'].renderExpensesList();
+                window.modules['budget'].renderSummary();
+            }
+
+            // Show confirmation
+            alert(`✓ Healthcare expense updated in Budget:\n${metalTier} plan at $${monthlyCost.toFixed(2)}/month`);
         },
         
         save() {

@@ -322,20 +322,6 @@
                     timingText = `<div style="color: #888; font-size: 0.85em; margin-top: 3px;">${parts.join(', ')}</div>`;
                 }
                 
-                // Special handling for Healthcare expense
-                let acaLink = '';
-                if (expense.isHealthcare) {
-                    acaLink = `
-                        <div style="margin-top: 8px;">
-                            <button onclick="alert('ACA Calculator integration coming soon!')" 
-                                    style="background: #666; color: white; border: none; padding: 6px 12px; 
-                                           border-radius: 4px; cursor: pointer; font-size: 0.85em;">
-                                Calculate with ACA Tool →
-                            </button>
-                        </div>
-                    `;
-                }
-                
                 return `
                     <div style="padding: 15px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -346,7 +332,6 @@
                                     $${expense.amount.toFixed(2)} ${expense.frequency} ($${annualAmount.toFixed(2)}/year)
                                 </div>
                                 ${timingText}
-                                ${acaLink}
                             </div>
                             <div style="display: flex; gap: 8px; flex-shrink: 0;">
                                 <button onclick="window.modules['budget'].editExpense(${expense.id})"
