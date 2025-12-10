@@ -262,7 +262,7 @@
                                 <label style="display: block; margin-bottom: 5px;">
                                     FI Number (Target):${fiNumberLabel}
                                 </label>
-                                <input type="number" id="fiNumber" step="0.01" min="0" value="${inputs.fiNumber}"
+                                <input type="number" id="fiNumber" step="1" min="0" value="${Math.round(inputs.fiNumber)}"
                                        style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; ${fiNumberStyle}">
                                 ${fiNumberReset}
                                 ${!inputs.fiNumberCustom ? '<small style="color: #666; display: block; margin-top: 3px;">Auto-populated from Budget module (25× annual expenses)</small>' : ''}
@@ -336,8 +336,13 @@
                         </button>
                         <button onclick="window.modules['years-to-fi'].clearData()"
                                 style="background: #999; color: white; border: none; padding: 10px 20px;
-                                       border-radius: 4px; cursor: pointer;">
+                                       border-radius: 4px; cursor: pointer; margin-right: 10px;">
                             Clear All
+                        </button>
+                        <button onclick="closeModule()"
+                                style="background: #333; color: white; border: none; padding: 10px 20px;
+                                       border-radius: 4px; cursor: pointer;">
+                            Close
                         </button>
                     </div>
                 </div>

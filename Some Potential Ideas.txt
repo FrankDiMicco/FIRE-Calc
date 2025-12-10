@@ -1,4 +1,8 @@
-Change name of budget builder.  Budget?
+Landing Page  
+Show figures in Module buttons?
+
+
+Budget
 Import budgets?  Predefined categories?  
 Under Advanced - can reduce to x in down markets.
 ACA integration - Predefined line item in budgets. manual entry or Check box - get from ACA module.

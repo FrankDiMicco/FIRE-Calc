@@ -143,8 +143,13 @@
                         </button>
                         <button onclick="window.modules['retirement-sim'].clearData()"
                                 style="background: #999; color: white; border: none; padding: 10px 20px;
-                                       border-radius: 4px; cursor: pointer;">
+                                       border-radius: 4px; cursor: pointer; margin-right: 10px;">
                             Clear All
+                        </button>
+                        <button onclick="closeModule()"
+                                style="background: #333; color: white; border: none; padding: 10px 20px;
+                                       border-radius: 4px; cursor: pointer;">
+                            Close
                         </button>
                     </div>
                 </div>

@@ -190,14 +190,19 @@
                     <div class="section" style="margin-top: 20px;">
                         <h3>Actions</h3>
                         <button onclick="window.modules['tax'].exportData()"
-                                style="background: #666; color: white; border: none; padding: 10px 20px; 
+                                style="background: #666; color: white; border: none; padding: 10px 20px;
                                        border-radius: 4px; cursor: pointer; margin-right: 10px;">
                             Export Data
                         </button>
                         <button onclick="window.modules['tax'].clearData()"
-                                style="background: #999; color: white; border: none; padding: 10px 20px; 
-                                       border-radius: 4px; cursor: pointer;">
+                                style="background: #999; color: white; border: none; padding: 10px 20px;
+                                       border-radius: 4px; cursor: pointer; margin-right: 10px;">
                             Clear All
+                        </button>
+                        <button onclick="closeModule()"
+                                style="background: #333; color: white; border: none; padding: 10px 20px;
+                                       border-radius: 4px; cursor: pointer;">
+                            Close
                         </button>
                     </div>
                     
