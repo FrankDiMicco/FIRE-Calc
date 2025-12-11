@@ -622,7 +622,15 @@
                         }
                     }
                 } else if (portfolioData.allocation) {
-                    allocation = portfolioData.allocation;
+                    // Combine ESOP, Crypto, and Gold with stocks for historical simulation
+                    allocation = {
+                        stocks: portfolioData.allocation.stocks +
+                               (portfolioData.allocation.esop || 0) +
+                               (portfolioData.allocation.crypto || 0) +
+                               (portfolioData.allocation.gold || 0),
+                        bonds: portfolioData.allocation.bonds,
+                        cash: portfolioData.allocation.cash
+                    };
                 }
             } catch (e) {
                 console.log('Could not get portfolio allocation, using 60/40 default');

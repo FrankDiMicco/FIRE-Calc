@@ -386,8 +386,15 @@
                 // Populate starting balance
                 document.getElementById('startingBalance').value = portfolioData.totalValue;
 
+                // Combine ESOP, Crypto, and Gold with stocks for historical simulation
+                // (ESOP is company stock, Crypto/Gold are equity-like assets)
+                const stocksTotal = portfolioData.allocation.stocks +
+                                   (portfolioData.allocation.esop || 0) +
+                                   (portfolioData.allocation.crypto || 0) +
+                                   (portfolioData.allocation.gold || 0);
+
                 // Populate allocation
-                document.getElementById('stocksPercent').value = portfolioData.allocation.stocks.toFixed(1);
+                document.getElementById('stocksPercent').value = stocksTotal.toFixed(1);
                 document.getElementById('bondsPercent').value = portfolioData.allocation.bonds.toFixed(1);
                 document.getElementById('cashPercent').value = portfolioData.allocation.cash.toFixed(1);
 
