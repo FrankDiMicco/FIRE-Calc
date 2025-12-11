@@ -107,7 +107,7 @@
                                 const annual = expense.frequency === 'monthly' ? expense.amount * 12 : expense.amount;
                                 return sum + annual;
                             }, 0);
-                            const withdrawalRate = savedBudgetData.withdrawalRate || 4;
+                            const withdrawalRate = savedBudgetData.selectedWithdrawalRate || 4;
                             budgetData = {
                                 fiNumber: (annualTotal / withdrawalRate) * 100,
                                 annualTotal: annualTotal
@@ -789,18 +789,35 @@
                             Based on ${hist.totalScenarios} historical market scenarios (1871-2024)
                         </p>
                         ${allocInfo ? `<p style="color: #666; font-size: 0.85em; margin-bottom: 15px;">${allocInfo}</p>` : ''}
-                        <div style="margin-bottom: 10px;">
-                            <strong>Range:</strong> ${hist.min}-${hist.max} years
+
+                        <div style="background: #f5f5f5; padding: 12px; border-radius: 4px; margin-bottom: 10px;">
+                            <div style="margin-bottom: 8px;">
+                                <strong style="color: #2e7d32;">Best Case:</strong> ${hist.min} year${hist.min !== 1 ? 's' : ''}
+                                <span style="color: #666; font-size: 0.85em;"> (fastest historical scenario)</span>
+                            </div>
+                            <div style="margin-bottom: 8px;">
+                                <strong>Median:</strong> ${hist.percentile50} year${hist.percentile50 !== 1 ? 's' : ''}
+                                <span style="color: #666; font-size: 0.85em;"> (typical scenario)</span>
+                            </div>
+                            <div>
+                                <strong style="color: #c62828;">Worst Case:</strong> ${hist.max} year${hist.max !== 1 ? 's' : ''}
+                                <span style="color: #666; font-size: 0.85em;"> (slowest historical scenario)</span>
+                            </div>
                         </div>
-                        <div style="margin-bottom: 10px;">
-                            <strong>Best case (10th percentile):</strong> ${hist.percentile10} years
-                        </div>
-                        <div style="margin-bottom: 10px;">
-                            <strong>Median (50th percentile):</strong> ${hist.percentile50} years
-                        </div>
-                        <div style="margin-bottom: 10px;">
-                            <strong>Worst case (90th percentile):</strong> ${hist.percentile90} years
-                        </div>
+
+                        <details style="margin-top: 10px;">
+                            <summary style="cursor: pointer; color: #666; font-size: 0.9em;">
+                                Show additional percentiles
+                            </summary>
+                            <div style="margin-top: 10px; padding-left: 10px; border-left: 2px solid #ddd;">
+                                <div style="color: #666; font-size: 0.85em; margin-bottom: 5px;">
+                                    <strong>10th percentile:</strong> ${hist.percentile10} years (90% took longer)
+                                </div>
+                                <div style="color: #666; font-size: 0.85em; margin-bottom: 5px;">
+                                    <strong>90th percentile:</strong> ${hist.percentile90} years (90% were faster)
+                                </div>
+                            </div>
+                        </details>
                     </div>
                 `;
             } else if (mode === 'historical') {
