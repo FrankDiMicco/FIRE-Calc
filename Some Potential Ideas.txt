@@ -21,7 +21,7 @@ Cost basis section
 
 
 Retirement simulator
-Does the simulator account for future income like SS or inheritance? 
+Does the simulator account for future income like SS or inheritance? Same for Years to FI
 Save scenarios
 
 
