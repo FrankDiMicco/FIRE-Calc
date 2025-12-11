@@ -70,6 +70,7 @@
                                         style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                                     <option value="monthly">Monthly</option>
                                     <option value="annual">Annual</option>
+                                    <option value="one-time">One Time</option>
                                 </select>
                             </div>
 
@@ -339,13 +340,22 @@
 
             // Sort income sources by annual amount (largest to smallest)
             const sortedIncome = [...incomeSources].sort((a, b) => {
-                const aAnnual = a.frequency === 'monthly' ? a.amount * 12 : a.amount;
-                const bAnnual = b.frequency === 'monthly' ? b.amount * 12 : b.amount;
+                const aAnnual = a.frequency === 'monthly' ? a.amount * 12 :
+                               a.frequency === 'one-time' ? a.amount : a.amount;
+                const bAnnual = b.frequency === 'monthly' ? b.amount * 12 :
+                               b.frequency === 'one-time' ? b.amount : b.amount;
                 return bAnnual - aAnnual;
             });
 
             container.innerHTML = sortedIncome.map(income => {
-                const annualAmount = income.frequency === 'monthly' ? income.amount * 12 : income.amount;
+                // Calculate display amounts based on frequency
+                let amountDisplay;
+                if (income.frequency === 'one-time') {
+                    amountDisplay = `$${income.amount.toFixed(2)} one-time`;
+                } else {
+                    const annualAmount = income.frequency === 'monthly' ? income.amount * 12 : income.amount;
+                    amountDisplay = `$${income.amount.toFixed(2)} ${income.frequency} ($${annualAmount.toFixed(2)}/year)`;
+                }
 
                 // Build timing description
                 let timingText = '';
@@ -372,7 +382,7 @@
                                 <strong>${income.name}</strong>
                                 <span style="color: #666; font-size: 0.85em;"> (${this.getTypeLabel(income.type)})</span>
                                 <div style="color: #666; margin-top: 5px;">
-                                    $${income.amount.toFixed(2)} ${income.frequency} ($${annualAmount.toFixed(2)}/year)
+                                    ${amountDisplay}
                                 </div>
                                 <div style="margin-top: 5px;">
                                     <span style="color: #666; font-size: 0.85em;">Tax: ${this.getTaxTreatmentLabel(taxTreatment)}</span>
@@ -401,14 +411,26 @@
         renderSummary() {
             const container = document.getElementById('incomeSummary');
 
-            const annualTotal = incomeSources.reduce((sum, income) => {
-                const annual = income.frequency === 'monthly' ? income.amount * 12 : income.amount;
-                return sum + annual;
-            }, 0);
+            // Separate recurring and one-time income
+            let recurringAnnualTotal = 0;
+            let oneTimeTotal = 0;
+
+            incomeSources.forEach(income => {
+                if (income.frequency === 'one-time') {
+                    oneTimeTotal += income.amount;
+                } else {
+                    const annual = income.frequency === 'monthly' ? income.amount * 12 : income.amount;
+                    recurringAnnualTotal += annual;
+                }
+            });
 
             // Calculate totals by type
             const byType = {};
             incomeSources.forEach(income => {
+                if (income.frequency === 'one-time') {
+                    // Skip one-time income in type breakdown (or show separately)
+                    return;
+                }
                 const annual = income.frequency === 'monthly' ? income.amount * 12 : income.amount;
                 if (!byType[income.type]) {
                     byType[income.type] = 0;
@@ -416,7 +438,7 @@
                 byType[income.type] += annual;
             });
 
-            // Calculate totals by tax treatment
+            // Calculate totals by tax treatment (excluding one-time)
             const byTaxTreatment = {
                 ordinary: 0,
                 qualified: 0,
@@ -424,6 +446,9 @@
                 'social-security': 0
             };
             incomeSources.forEach(income => {
+                if (income.frequency === 'one-time') {
+                    return;
+                }
                 const annual = income.frequency === 'monthly' ? income.amount * 12 : income.amount;
                 const treatment = income.taxTreatment || 'ordinary';
                 byTaxTreatment[treatment] += annual;
@@ -452,14 +477,26 @@
                 taxBreakdownHtml += '</div>';
             }
 
+            // Build one-time income section if applicable
+            let oneTimeHtml = '';
+            if (oneTimeTotal > 0) {
+                oneTimeHtml = `
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+                        <strong>One-Time Income:</strong> $${oneTimeTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <div style="color: #888; font-size: 0.85em; margin-top: 3px;">Not included in recurring totals</div>
+                    </div>
+                `;
+            }
+
             container.innerHTML = `
                 <div style="background: #f5f5f5; padding: 15px; border-radius: 4px;">
                     <div style="margin-bottom: 10px; font-size: 1.1em;">
-                        <strong>Total Annual Income:</strong> $${annualTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <strong>Total Recurring Annual Income:</strong> $${recurringAnnualTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                     <div style="color: #666;">
-                        <strong>Monthly Average:</strong> $${(annualTotal / 12).toFixed(2)}
+                        <strong>Monthly Average:</strong> $${(recurringAnnualTotal / 12).toFixed(2)}
                     </div>
+                    ${oneTimeHtml}
                     ${typeBreakdownHtml}
                     ${taxBreakdownHtml}
                 </div>
@@ -495,14 +532,25 @@
 
         // Public API for other modules to access income data
         getData() {
-            const annualTotal = incomeSources.reduce((sum, income) => {
-                const annual = income.frequency === 'monthly' ? income.amount * 12 : income.amount;
-                return sum + annual;
-            }, 0);
+            // Separate recurring and one-time income
+            let recurringAnnualTotal = 0;
+            let oneTimeTotal = 0;
 
-            // Calculate by type
+            incomeSources.forEach(income => {
+                if (income.frequency === 'one-time') {
+                    oneTimeTotal += income.amount;
+                } else {
+                    const annual = income.frequency === 'monthly' ? income.amount * 12 : income.amount;
+                    recurringAnnualTotal += annual;
+                }
+            });
+
+            // Calculate by type (recurring only)
             const byType = {};
             incomeSources.forEach(income => {
+                if (income.frequency === 'one-time') {
+                    return;
+                }
                 const annual = income.frequency === 'monthly' ? income.amount * 12 : income.amount;
                 if (!byType[income.type]) {
                     byType[income.type] = 0;
@@ -510,7 +558,7 @@
                 byType[income.type] += annual;
             });
 
-            // Calculate by tax treatment
+            // Calculate by tax treatment (recurring only)
             const byTaxTreatment = {
                 ordinary: 0,
                 qualified: 0,
@@ -518,6 +566,9 @@
                 'social-security': 0
             };
             incomeSources.forEach(income => {
+                if (income.frequency === 'one-time') {
+                    return;
+                }
                 const annual = income.frequency === 'monthly' ? income.amount * 12 : income.amount;
                 const treatment = income.taxTreatment || 'ordinary';
                 byTaxTreatment[treatment] += annual;
@@ -525,8 +576,9 @@
 
             return {
                 incomeSources,
-                annualTotal,
-                monthlyAverage: annualTotal / 12,
+                annualTotal: recurringAnnualTotal,
+                monthlyAverage: recurringAnnualTotal / 12,
+                oneTimeTotal,
                 byType,
                 byTaxTreatment
             };
