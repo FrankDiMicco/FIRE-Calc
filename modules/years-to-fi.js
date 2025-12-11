@@ -349,21 +349,41 @@
             `;
 
             // Track changes to mark fields as custom
-            document.getElementById('fiNumber').addEventListener('input', () => {
+            // Store original auto-populated values to compare against
+            const originalFiNumber = inputs.fiNumber;
+            const originalPortfolio = inputs.currentPortfolio;
+            const originalSavings = inputs.annualSavings;
+
+            document.getElementById('fiNumber').addEventListener('input', (e) => {
+                inputs.fiNumber = parseFloat(e.target.value) || 0;
                 inputs.fiNumberCustom = true;
                 this.save();
+            });
+
+            document.getElementById('fiNumber').addEventListener('blur', () => {
+                // Re-render after user is done editing to show custom indicator
                 this.render();
             });
 
-            document.getElementById('currentPortfolio').addEventListener('input', () => {
+            document.getElementById('currentPortfolio').addEventListener('input', (e) => {
+                inputs.currentPortfolio = parseFloat(e.target.value) || 0;
                 inputs.currentPortfolioCustom = true;
                 this.save();
+            });
+
+            document.getElementById('currentPortfolio').addEventListener('blur', () => {
+                // Re-render after user is done editing to show custom indicator
                 this.render();
             });
 
-            document.getElementById('annualSavings').addEventListener('input', () => {
+            document.getElementById('annualSavings').addEventListener('input', (e) => {
+                inputs.annualSavings = parseFloat(e.target.value) || 0;
                 inputs.annualSavingsCustom = true;
                 this.save();
+            });
+
+            document.getElementById('annualSavings').addEventListener('blur', () => {
+                // Re-render after user is done editing to show custom indicator
                 this.render();
             });
 
@@ -470,8 +490,22 @@
                 return;
             }
 
+            // Check if reaching FI is possible
             if (inputs.annualSavings === 0) {
-                return;
+                // With 0 savings, can only reach FI through portfolio growth
+                if (inputs.calculationMode === 'custom' && inputs.expectedReturn <= 0) {
+                    // No growth and no savings = can't reach FI
+                    lastResults = {
+                        cannotReachFI: true,
+                        reason: 'With $0 annual savings and 0% growth, you cannot reach FI.',
+                        currentProgress: (inputs.currentPortfolio / inputs.fiNumber * 100).toFixed(1),
+                        mode: inputs.calculationMode
+                    };
+                    this.save();
+                    this.displayResults(lastResults);
+                    return;
+                }
+                // Otherwise, proceed with calculation (will rely on portfolio growth alone)
             }
 
             let yearsSimple = null;
@@ -515,9 +549,22 @@
 
             if (returnRate === 0) {
                 // Simple case: no growth
+                if (annualSavings === 0) {
+                    // Cannot reach FI with no growth and no savings
+                    return Infinity;
+                }
                 return (targetValue - currentValue) / annualSavings;
             }
 
+            if (annualSavings === 0) {
+                // No contributions, only portfolio growth
+                // FV = PV * (1 + r)^n
+                // Solve for n: n = log(FV/PV) / log(1 + r)
+                const years = Math.log(targetValue / currentValue) / Math.log(1 + returnRate);
+                return Math.max(0, years);
+            }
+
+            // General case: contributions + growth
             // Using logarithmic formula to solve for n
             const adjustedNumerator = Math.log((targetValue * returnRate + annualSavings) / (currentValue * returnRate + annualSavings));
             const denominator = Math.log(1 + returnRate);
@@ -661,6 +708,26 @@
                         <h3 style="color: #2e7d32; margin: 0 0 10px 0;">🎉 Congratulations!</h3>
                         <p style="font-size: 1.2em; margin: 0;">
                             You've already reached Financial Independence!
+                        </p>
+                    </div>
+                `;
+                resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                return;
+            }
+
+            // Check if FI is reachable
+            if (results.cannotReachFI) {
+                resultsDisplay.innerHTML = `
+                    <div style="background: #ffebee; padding: 20px; border-radius: 4px;">
+                        <h3 style="color: #c62828; margin: 0 0 10px 0;">Cannot Reach FI</h3>
+                        <p style="margin: 0 0 10px 0;">
+                            ${results.reason}
+                        </p>
+                        <p style="color: #666; margin: 0;">
+                            <strong>Current Progress:</strong> ${results.currentProgress}% to FI
+                        </p>
+                        <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
+                            To reach FI, you need either portfolio growth (positive expected return) or annual savings.
                         </p>
                     </div>
                 `;
