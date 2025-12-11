@@ -371,12 +371,52 @@
 
         pullFromPortfolio() {
             try {
-                if (!window.modules['portfolio']) {
-                    alert('Portfolio module not loaded. Please configure your portfolio first.');
-                    return;
+                let portfolioData = null;
+
+                // Try loaded module first
+                if (window.modules['portfolio']) {
+                    portfolioData = window.modules['portfolio'].getData();
                 }
 
-                const portfolioData = window.modules['portfolio'].getData();
+                // If module not loaded, read directly from localStorage
+                if (!portfolioData) {
+                    const savedPortfolioData = StateManager.load('portfolio');
+                    if (savedPortfolioData && savedPortfolioData.accounts) {
+                        const accounts = savedPortfolioData.accounts;
+                        const totalValue = accounts.reduce((sum, account) => sum + (account.balance || 0), 0);
+
+                        if (totalValue > 0) {
+                            let totalStocks = 0;
+                            let totalBonds = 0;
+                            let totalCash = 0;
+
+                            accounts.forEach(account => {
+                                const accountValue = account.balance;
+                                const weight = accountValue / totalValue;
+
+                                if (account.type === 'Savings/Checking') {
+                                    totalCash += 100 * weight;
+                                } else if (account.type === 'Crypto' || account.type === 'Gold' || account.type === 'ESOP') {
+                                    // Treat alternative assets as stocks for historical simulation
+                                    totalStocks += 100 * weight;
+                                } else {
+                                    totalStocks += (account.stocks_pct || 0) * weight;
+                                    totalBonds += (account.bonds_pct || 0) * weight;
+                                    totalCash += (account.cash_pct || 0) * weight;
+                                }
+                            });
+
+                            portfolioData = {
+                                totalValue: totalValue,
+                                allocation: {
+                                    stocks: totalStocks,
+                                    bonds: totalBonds,
+                                    cash: totalCash
+                                }
+                            };
+                        }
+                    }
+                }
 
                 if (!portfolioData || portfolioData.totalValue === 0) {
                     alert('No portfolio data available. Please add accounts to your portfolio first.');
@@ -386,12 +426,14 @@
                 // Populate starting balance
                 document.getElementById('startingBalance').value = portfolioData.totalValue;
 
-                // Combine ESOP, Crypto, and Gold with stocks for historical simulation
-                // (ESOP is company stock, Crypto/Gold are equity-like assets)
-                const stocksTotal = portfolioData.allocation.stocks +
-                                   (portfolioData.allocation.esop || 0) +
-                                   (portfolioData.allocation.crypto || 0) +
-                                   (portfolioData.allocation.gold || 0);
+                // For loaded module data, combine ESOP/Crypto/Gold with stocks
+                // For localStorage data, this is already done above
+                let stocksTotal = portfolioData.allocation.stocks;
+                if (portfolioData.allocation.esop || portfolioData.allocation.crypto || portfolioData.allocation.gold) {
+                    stocksTotal += (portfolioData.allocation.esop || 0) +
+                                  (portfolioData.allocation.crypto || 0) +
+                                  (portfolioData.allocation.gold || 0);
+                }
 
                 // Populate allocation
                 document.getElementById('stocksPercent').value = stocksTotal.toFixed(1);
@@ -419,12 +461,28 @@
 
         pullFromBudget() {
             try {
-                if (!window.modules['budget']) {
-                    alert('Budget module not loaded. Please configure your budget first.');
-                    return;
+                let budgetData = null;
+
+                // Try loaded module first
+                if (window.modules['budget']) {
+                    budgetData = window.modules['budget'].getData();
                 }
 
-                const budgetData = window.modules['budget'].getData();
+                // If module not loaded, read directly from localStorage
+                if (!budgetData) {
+                    const savedBudgetData = StateManager.load('budget');
+                    if (savedBudgetData && savedBudgetData.expenses) {
+                        // Calculate annual total from expenses array
+                        const annualTotal = savedBudgetData.expenses.reduce((sum, expense) => {
+                            const annual = expense.frequency === 'monthly' ? expense.amount * 12 : expense.amount;
+                            return sum + annual;
+                        }, 0);
+
+                        budgetData = {
+                            annualTotal: annualTotal
+                        };
+                    }
+                }
 
                 if (!budgetData || budgetData.annualTotal === 0) {
                     alert('No budget data available. Please add expenses to your budget first.');
